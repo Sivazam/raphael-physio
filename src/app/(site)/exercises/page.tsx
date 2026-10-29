@@ -13,7 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/site/page-header";
 import { Reveal } from "@/components/site/reveal";
 import { SectionHeading } from "@/components/site/section-heading";
-import { db } from "@/lib/db";
+import {
+  getExerciseCategories,
+  getPublishedExercises,
+} from "@/lib/catalog";
 import { getSettings } from "@/lib/settings";
 import { SITE } from "@/lib/site";
 import { formatPhoneDisplay, getCategoryIcon } from "./_lib/exercises";
@@ -23,20 +26,16 @@ interface ExercisesPageProps {
 }
 
 /**
- * The whole published library (10 exercises) is read once per request and
- * filtered in memory — the data set is tiny, and `cache()` dedupes the read
- * between generateMetadata and the page render.
+ * The whole published library is read once per request and filtered in
+ * memory — the data set is tiny, and `cache()` dedupes the read between
+ * generateMetadata and the page render. The catalog serves database rows
+ * when the database is reachable and the baked snapshot otherwise (e.g.
+ * serverless deploys), so the library never renders empty.
  */
 const getLibrary = cache(async () => {
   const [categories, exercises] = await Promise.all([
-    db.exerciseCategory.findMany({ orderBy: { sortOrder: "asc" } }).catch(() => []),
-    db.exercise
-      .findMany({
-        where: { status: "published" },
-        orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { title: "asc" }],
-        include: { category: { select: { name: true, slug: true } } },
-      })
-      .catch(() => []),
+    getExerciseCategories(),
+    getPublishedExercises(),
   ]);
   return { categories, exercises };
 });

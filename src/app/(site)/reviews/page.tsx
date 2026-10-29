@@ -14,6 +14,7 @@ import {
 import { Reveal } from "@/components/site/reveal";
 import { SectionHeading } from "@/components/site/section-heading";
 import { CtaBand } from "@/components/site/cta-band";
+import { CardMarquee } from "@/components/site/card-marquee";
 import { getReviewSnapshot } from "@/lib/google-reviews";
 import { getSettings } from "@/lib/settings";
 import { SITE } from "@/lib/site";
@@ -43,12 +44,12 @@ import {
 export const metadata: Metadata = {
   title: "Google Reviews",
   description:
-    "Authentic Google reviews for Raphael Physiotherapy & Rehabilitation Centre — retrieved automatically through an authorized Google integration, never hand-copied, edited or invented.",
+    "Authentic Google reviews for Raphael Physiotherapy & Rehabilitation Centre — shown exactly as patients posted them on Google, never hand-copied, edited or invented.",
   alternates: { canonical: "/reviews" },
   openGraph: {
     title: "Google Reviews",
     description:
-      "Google reviews shown exactly as Google returns them — through an authorized integration, never fabricated.",
+      "Google reviews shown exactly as Google returns them — never fabricated.",
   },
 };
 
@@ -96,13 +97,13 @@ const HOW_IT_WORKS_STEPS = [
   },
   {
     icon: RefreshCw,
-    title: "Automatic sync",
-    text: "The server periodically fetches the reviews Google makes available and caches them in the website's database — rating, review text, author and date stored exactly as Google returns them.",
+    title: "Kept up to date",
+    text: "The website fetches the reviews Google makes available and stores them exactly as Google returns them — rating, review text, author and date.",
   },
   {
     icon: BadgeCheck,
     title: "Always current",
-    text: "This page renders from that cache, never from a hand-typed number. New reviews appear on their own, and every figure shown traces back to Google.",
+    text: "This page renders from that store, never from a hand-typed number. New reviews appear on their own, and every figure shown traces back to Google.",
   },
 ] as const;
 
@@ -117,8 +118,8 @@ function HowItWorks({ connected }: { connected: boolean }) {
             title="Three steps, zero manual edits"
             lede={
               connected
-                ? "This page is wired to Google's authorized review API — here is exactly what happens between a patient posting a review and it appearing here."
-                : "When the clinic activates the authorized connection, this is exactly what will happen between a patient posting a review and it appearing here."
+                ? "This page is wired to the clinic's Google listing — here is exactly what happens between a patient posting a review and it appearing here."
+                : "When the connection is activated, this is exactly what will happen between a patient posting a review and it appearing here."
             }
           />
         </Reveal>
@@ -160,10 +161,10 @@ export default async function ReviewsPage() {
   const hasReviews = snapshot.reviews.length > 0;
 
   const lede = hasReviews
-    ? "Synchronized automatically from the clinic's Google listing — ratings, review texts and dates exactly as Google returns them."
+    ? "From the clinic's Google listing — ratings, review texts and dates exactly as Google returns them."
     : snapshot.configured
-      ? "The authorized Google connection is configured on this website — the first synchronization will populate this page automatically."
-      : "This page exists to carry our Google reviews automatically — unedited, unfiltered, always current. Until the authorized connection is live, it carries something rarer: nothing at all.";
+      ? "The Google connection is in place — the first reviews will appear here shortly."
+      : "This page exists to carry our Google reviews — unedited, unfiltered, always current. Until the connection is live, it carries something rarer: nothing at all.";
 
   return (
     <>
@@ -247,9 +248,8 @@ export default async function ReviewsPage() {
             </div>
             {!hasReviews && !snapshot.configured && (
               <p className="mx-auto mt-8 max-w-md text-xs leading-relaxed text-primary-foreground/55">
-                A live review feed appears here once the clinic&apos;s
-                authorized Google integration is connected — never fabricated
-                placeholders.
+                Reviews will appear here exactly as patients post them on
+                Google — never fabricated placeholders.
               </p>
             )}
           </Reveal>
@@ -271,40 +271,29 @@ export default async function ReviewsPage() {
               />
             </Reveal>
 
+            {/* Rating summary strip — figures from the DB cache only */}
             <Reveal delay={0.08}>
-              <div className="mt-12 grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12">
-                {/* Rating summary — figures from the DB cache only */}
-                <div className="flex h-fit flex-col rounded-3xl border border-border/70 bg-card p-6 sm:p-8">
-                  <p className="kicker flex items-center gap-3">
-                    <span
-                      aria-hidden="true"
-                      className="inline-block h-px w-8 bg-clay-deep/60"
-                    />
-                    Currently synced
-                  </p>
-
-                  {snapshot.rating && (
-                    <>
-                      <div className="mt-5 flex items-baseline gap-2">
-                        <span className="font-display text-5xl font-semibold tracking-tight">
-                          {snapshot.rating.value}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          out of 5
-                        </span>
-                      </div>
+              <div className="mt-12 flex flex-wrap items-center gap-x-10 gap-y-6 rounded-3xl border border-border/70 bg-card p-6 sm:p-8">
+                {snapshot.rating && (
+                  <div className="flex flex-wrap items-center gap-5">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-display text-5xl font-semibold tracking-tight">
+                        {snapshot.rating.value}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        out of 5
+                      </span>
+                    </div>
+                    <div>
                       <StarRating
-                        className="mt-3"
                         value={snapshot.rating.value}
                         count={snapshot.rating.count}
                         labelPrefix="Average rating"
                       />
-                      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                      <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
                         Average of the {snapshot.rating.count}{" "}
-                        {snapshot.rating.count === 1
-                          ? "review"
-                          : "reviews"}{" "}
-                        synced below.{" "}
+                        {snapshot.rating.count === 1 ? "review" : "reviews"}{" "}
+                        shown below.{" "}
                         {snapshot.googleTotalReviews
                           ? `Google reports ${snapshot.googleTotalReviews} total ${
                               snapshot.googleTotalReviews === 1
@@ -313,75 +302,89 @@ export default async function ReviewsPage() {
                             } for the clinic — the full history lives on Google.`
                           : "The full history lives on Google."}
                       </p>
-                    </>
-                  )}
+                    </div>
+                  </div>
+                )}
 
+                <div className="flex min-w-56 flex-1 flex-col gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   {snapshot.lastSyncedAt && (
-                    <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                      Last synchronized from Google:{" "}
+                    <p>
+                      Last refreshed from Google:{" "}
                       {formatSyncTime(snapshot.lastSyncedAt)}.
                     </p>
                   )}
                   {snapshot.lastSyncStatus === "error" &&
                     snapshot.lastSyncedAt && (
-                      <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+                      <p className="flex items-start gap-2">
                         <AlertTriangle
                           className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-red"
                           aria-hidden="true"
                         />
-                        The latest sync attempt did not succeed — the figures
-                        above are from the last successful sync and may be
-                        slightly out of date.
+                        <span>
+                          The latest refresh did not succeed — the figures above
+                          are from the last successful one and may be slightly
+                          out of date.
+                        </span>
                       </p>
                     )}
                   {!snapshot.configured && (
-                    <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+                    <p className="flex items-start gap-2">
                       <AlertTriangle
                         className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-red"
                         aria-hidden="true"
                       />
-                      The automatic Google connection is currently paused —
-                      these reviews are the most recent successfully synced
-                      and are not being refreshed.
+                      <span>
+                        Refreshing from Google is currently paused — these are
+                        the most recent reviews fetched.
+                      </span>
                     </p>
                   )}
-
-                  {reviewsUrl && (
-                    <a
-                      href={reviewsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline mt-6 h-11 text-[12px]"
-                    >
-                      <span className="btn-sweep" aria-hidden="true" />
-                      Read all reviews on Google
-                      <ExternalLink className="relative h-4 w-4" aria-hidden="true" />
-                    </a>
-                  )}
                 </div>
 
-                {/* Scrollable review cards */}
-                <div>
-                  <ul
-                    aria-label="Google reviews cached from the clinic's listing, newest first"
-                    className="max-h-96 space-y-4 overflow-y-auto scroll-warm pr-2"
+                {reviewsUrl && (
+                  <a
+                    href={reviewsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline h-11 text-[12px]"
                   >
-                    {snapshot.reviews.map((review) => (
-                      <li key={review.id}>
-                        <ReviewCard
-                          review={review}
-                          listingUrl={reviewsUrl ?? "#"}
-                          formatDate={formatDay}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                  <GoogleAttribution
-                    listingUrl={reviewsUrl ?? "#"}
-                    googleTotalReviews={snapshot.googleTotalReviews}
-                  />
-                </div>
+                    <span className="btn-sweep" aria-hidden="true" />
+                    Read all reviews on Google
+                    <ExternalLink className="relative h-4 w-4" aria-hidden="true" />
+                  </a>
+                )}
               </div>
+            </Reveal>
+
+            {/* auto-scrolling review rail — drifts the opposite way to the
+                homepage exercise rail; hover pauses, hold & drag to browse */}
+            <Reveal delay={0.12} className="mt-8">
+              <CardMarquee
+                ariaLabel="Google reviews from patients — auto-scrolling; hover to pause, drag to browse"
+                direction="right"
+                speed={22}
+                groupClassName="gap-6 pr-6"
+              >
+                {snapshot.reviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="flex w-[20rem] shrink-0 sm:w-[22rem]"
+                  >
+                    <ReviewCard
+                      review={review}
+                      listingUrl={reviewsUrl ?? "#"}
+                      formatDate={formatDay}
+                    />
+                  </div>
+                ))}
+              </CardMarquee>
+            </Reveal>
+
+            <Reveal delay={0.16}>
+              <GoogleAttribution
+                listingUrl={reviewsUrl ?? "#"}
+                googleTotalReviews={snapshot.googleTotalReviews}
+              />
             </Reveal>
           </div>
         </section>
@@ -399,15 +402,14 @@ export default async function ReviewsPage() {
               >
                 Connected —{" "}
                 <em className="font-display font-medium italic text-clay-deep">
-                  the first sync is on its way.
+                  the first reviews are on their way.
                 </em>
               </h2>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                This website is now authorized to read the clinic&apos;s Google
-                reviews. The server fetches them on a fixed schedule; the
-                moment the first synchronization completes, the rating, the
-                review count and the reviews themselves will appear on this
-                page automatically.
+                This website is now connected to the clinic&apos;s Google
+                reviews. The rating, the review count and the reviews
+                themselves will appear on this page on their own — no one
+                here types a word.
               </p>
               <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
                 You don&apos;t have to wait for us — every review is already
@@ -444,7 +446,7 @@ export default async function ReviewsPage() {
                     aria-hidden="true"
                     className="inline-block h-px w-8 bg-clay-deep/60"
                   />
-                  Once synced, this page will show
+                  Once connected, this page will show
                 </p>
                 <ul className="mt-5 space-y-4">
                   {[
@@ -486,14 +488,13 @@ export default async function ReviewsPage() {
               </h2>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
                 Patients do review this centre on Google — in their own words,
-                under their own names. Once the clinic connects this website
-                to its Google profile through Google&apos;s authorized review
-                API, those reviews will appear on this page by themselves: the
-                rating, the count, every review text and date, refreshed on a
-                schedule without anyone retyping a word.
+                under their own names. When the clinic connects this website
+                to its Google profile, those reviews will appear on this page
+                on their own — the rating, the count, every review text and
+                date, without anyone retyping a word.
               </p>
               <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-                Until that authorized connection is made, you will not find a
+                Until that connection is made, you will not find a
                 rating or a review count anywhere on this website. A number we
                 cannot verify is not a number we will show.
               </p>
@@ -518,12 +519,12 @@ export default async function ReviewsPage() {
                     {
                       icon: BadgeCheck,
                       title: "Numbers only from Google",
-                      text: "Every rating and review count on this page will be retrieved directly from Google through an authorized API — never typed in by hand.",
+                      text: "Every rating and review count on this page is retrieved directly from Google — never typed in by hand.",
                     },
                     {
                       icon: ShieldCheck,
                       title: "No invented reviews",
-                      text: "No review, reviewer name or rating is ever written by us. Until real ones sync, this page stays empty.",
+                      text: "No review, reviewer name or rating is ever written by us. Until real ones arrive, this page stays empty.",
                     },
                     {
                       icon: Quote,

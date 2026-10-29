@@ -20,7 +20,7 @@ import {
 import { SectionHeading } from "@/components/site/section-heading";
 import { Reveal } from "@/components/site/reveal";
 import { CtaBand } from "@/components/site/cta-band";
-import { db } from "@/lib/db";
+import { getPublishedServices, getServiceBySlug } from "@/lib/catalog";
 import { getSettings } from "@/lib/settings";
 import { parseJsonArray, type FaqItem } from "@/lib/content";
 import { SITE } from "@/lib/site";
@@ -31,34 +31,13 @@ interface ServicePageProps {
 }
 
 async function getService(slug: string) {
-  return db.service
-    .findUnique({
-      where: { slug },
-      include: {
-        category: { select: { name: true, slug: true } },
-        exercises: {
-          where: { status: "published" },
-          orderBy: { sortOrder: "asc" },
-          take: 4,
-          select: {
-            slug: true,
-            title: true,
-            summary: true,
-            category: { select: { name: true } },
-          },
-        },
-      },
-    })
-    .catch(() => null);
+  // Database rows when present; the baked snapshot when the database is
+  // unreachable (serverless deploys). Null = honest 404 on a working DB.
+  return getServiceBySlug(slug);
 }
 
 export async function generateStaticParams() {
-  const services = await db.service
-    .findMany({
-      where: { status: "published" },
-      select: { slug: true },
-    })
-    .catch(() => [] as { slug: string }[]);
+  const services = await getPublishedServices();
   return services.map((service) => ({ slug: service.slug }));
 }
 

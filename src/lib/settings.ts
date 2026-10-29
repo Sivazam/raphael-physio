@@ -2,6 +2,7 @@ import { cache } from "react";
 import { db } from "@/lib/db";
 import { SITE } from "@/lib/site";
 import { parseJsonArray, type Session } from "@/lib/content";
+import { BAKED_HOURS } from "@/lib/baked-content";
 
 /**
  * Server-side accessor for editable clinic settings. Values in the database
@@ -138,13 +139,17 @@ export const getSettings = cache(async (): Promise<ClinicInfo> => {
 export const getOperatingHours = cache(async (): Promise<DayHours[]> => {
   try {
     const rows = await db.operatingHour.findMany({ orderBy: { dayOfWeek: "asc" } });
-    if (rows.length === 0) return [];
+    // Empty result = database reachable but unseeded (or wiped) — serve the
+    // baked draft schedule so footer/contact/booking keep rendering hours.
+    if (rows.length === 0) return BAKED_HOURS;
     return rows.map((r) => ({
       dayOfWeek: r.dayOfWeek,
       isOpen: r.isOpen,
       sessions: parseJsonArray<Session>(r.sessions),
     }));
   } catch {
-    return [];
+    // Database unavailable (e.g. serverless deploys without the SQLite
+    // file) — the baked schedule keeps every hours surface consistent.
+    return BAKED_HOURS;
   }
 });

@@ -1,14 +1,18 @@
 import type { MetadataRoute } from "next";
-import { db } from "@/lib/db";
+import {
+  getPublishedExercises,
+  getPublishedServices,
+} from "@/lib/catalog";
 import { SITE } from "@/lib/site";
 
 /**
  * XML sitemap — served at `/sitemap.xml`.
  *
- * Static public pages plus every *published* service and exercise slug from
- * the database (drafts and archived content are deliberately excluded, and
- * any database failure degrades to the static routes only — never an error
- * page for crawlers).
+ * Static public pages plus every *published* service and exercise slug
+ * (drafts and archived content are deliberately excluded). Reads go
+ * through the content catalog, so the sitemap is complete both on the
+ * local database and on database-less serverless deploys (Vercel), which
+ * serve the baked-in published snapshot.
  *
  * Re-generated at most hourly so newly published admin content appears in
  * the sitemap without a redeploy.
@@ -20,20 +24,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   const [services, exercises] = await Promise.all([
-    db.service
-      .findMany({
-        where: { status: "published" },
-        select: { slug: true, updatedAt: true },
-        orderBy: { sortOrder: "asc" },
-      })
-      .catch(() => [] as { slug: string; updatedAt: Date }[]),
-    db.exercise
-      .findMany({
-        where: { status: "published" },
-        select: { slug: true, updatedAt: true },
-        orderBy: { sortOrder: "asc" },
-      })
-      .catch(() => [] as { slug: string; updatedAt: Date }[]),
+    getPublishedServices(),
+    getPublishedExercises(),
   ]);
 
   const staticEntries: MetadataRoute.Sitemap = [

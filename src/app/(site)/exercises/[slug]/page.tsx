@@ -16,7 +16,10 @@ import {
 } from "lucide-react";
 import { Reveal } from "@/components/site/reveal";
 import { SectionHeading } from "@/components/site/section-heading";
-import { db } from "@/lib/db";
+import {
+  getExerciseBySlug,
+  getRelatedExercises as getRelatedFromCatalog,
+} from "@/lib/catalog";
 import { getSettings } from "@/lib/settings";
 import { SITE } from "@/lib/site";
 import {
@@ -31,41 +34,16 @@ interface ExercisePageProps {
   params: Promise<{ slug: string }>;
 }
 
-/** One published exercise with its category and related published services. */
+/** One published exercise with its category and related published services.
+ * Database rows when present; the baked snapshot when the database is
+ * unreachable (serverless deploys). Null = honest 404 on a working DB. */
 const getExercise = cache(async (slug: string) => {
-  try {
-    return await db.exercise.findFirst({
-      where: { slug, status: "published" },
-      include: {
-        category: true,
-        services: {
-          where: { status: "published" },
-          select: { slug: true, name: true, tagline: true },
-          orderBy: { sortOrder: "asc" },
-        },
-      },
-    });
-  } catch {
-    return null;
-  }
+  return getExerciseBySlug(slug);
 });
 
 /** Up to three other published exercises in the same category. */
 const getRelatedExercises = cache(async (categorySlug: string, excludeSlug: string) => {
-  try {
-    return await db.exercise.findMany({
-      where: {
-        status: "published",
-        category: { slug: categorySlug },
-        slug: { not: excludeSlug },
-      },
-      orderBy: [{ featured: "desc" }, { title: "asc" }],
-      take: 3,
-      include: { category: { select: { name: true, slug: true } } },
-    });
-  } catch {
-    return [];
-  }
+  return getRelatedFromCatalog(categorySlug, excludeSlug);
 });
 
 export async function generateMetadata({ params }: ExercisePageProps): Promise<Metadata> {

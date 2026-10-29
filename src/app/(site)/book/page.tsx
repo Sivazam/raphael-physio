@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CalendarCheck2, Clock, ExternalLink, Info, Phone } from "lucide-react";
 import { PageHeader } from "@/components/site/page-header";
 import { Reveal } from "@/components/site/reveal";
-import { db } from "@/lib/db";
+import { getPublishedServices } from "@/lib/catalog";
 import { getOperatingHours, getSettings, type DayHours } from "@/lib/settings";
 import { DAY_NAMES, DAY_NAMES_SHORT, formatTime12h } from "@/lib/content";
 import {
@@ -65,19 +65,7 @@ export default async function BookPage({ searchParams }: { searchParams: SearchP
   const [settings, hours, serviceRows] = await Promise.all([
     getSettings(),
     getOperatingHours(),
-    db.service
-      .findMany({
-        where: { status: "published" },
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          tagline: true,
-          category: { select: { name: true } },
-        },
-      })
-      .catch(() => []),
+    getPublishedServices(),
   ]);
 
   const phone = {

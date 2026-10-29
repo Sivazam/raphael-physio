@@ -1,5 +1,5 @@
-import { db } from "@/lib/db";
 import { getOperatingHours, getSettings } from "@/lib/settings";
+import { getPublishedServices } from "@/lib/catalog";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { RegisterSw } from "@/components/pwa/register-sw";
@@ -15,18 +15,14 @@ export default async function SiteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [settings, hours, services] = await Promise.all([
+  const [settings, hours, publishedServices] = await Promise.all([
     getSettings(),
     getOperatingHours(),
-    db.service
-      .findMany({
-        where: { status: "published" },
-        select: { slug: true, name: true },
-        orderBy: { sortOrder: "asc" },
-        take: 4,
-      })
-      .catch(() => []),
+    getPublishedServices(),
   ]);
+  const services = publishedServices
+    .slice(0, 4)
+    .map((s) => ({ slug: s.slug, name: s.name }));
 
   // Compact hours summary for the header strip (12-hour clock):
   // "Mon–Sat 9:00 AM – 1:00 PM · 2:00 – 6:00 PM"

@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/site/page-header";
 import { SectionHeading } from "@/components/site/section-heading";
 import { Reveal } from "@/components/site/reveal";
 import { CtaBand } from "@/components/site/cta-band";
-import { db } from "@/lib/db";
+import { getPublishedServices } from "@/lib/catalog";
 import { SITE } from "@/lib/site";
 import { serviceImageMeta } from "./_components/image-meta";
 
@@ -63,22 +63,8 @@ type ServiceCardData = {
 };
 
 async function getServices(): Promise<ServiceCardData[]> {
-  return db.service
-    .findMany({
-      where: { status: "published" },
-      orderBy: { sortOrder: "asc" },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        tagline: true,
-        summary: true,
-        imageUrl: true,
-        featured: true,
-        category: { select: { name: true, slug: true } },
-      },
-    })
-    .catch(() => [] as ServiceCardData[]);
+  // Catalog = database rows when present, baked snapshot otherwise (Vercel).
+  return getPublishedServices();
 }
 
 export default async function ServicesPage() {

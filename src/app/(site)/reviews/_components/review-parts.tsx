@@ -19,6 +19,8 @@ interface StarRatingProps {
   count?: number;
   /** e.g. "Rated 4 out of 5" vs "Average rating 4.6 out of 5". */
   labelPrefix?: string;
+  /** "light" (default) for paper/card surfaces, "dark" for ink sections. */
+  tone?: "light" | "dark";
   className?: string;
 }
 
@@ -27,6 +29,7 @@ export function StarRating({
   value,
   count,
   labelPrefix = "Rating",
+  tone = "light",
   className,
 }: StarRatingProps) {
   const clamped = Math.max(0, Math.min(5, value));
@@ -44,7 +47,13 @@ export function StarRating({
       aria-label={label}
       className={cn("relative inline-flex shrink-0", className)}
     >
-      <span className="flex gap-0.5 text-muted-foreground/50" aria-hidden="true">
+      <span
+        className={cn(
+          "flex gap-0.5",
+          tone === "dark" ? "text-primary-foreground/25" : "text-muted-foreground/50",
+        )}
+        aria-hidden="true"
+      >
         {[0, 1, 2, 3, 4].map((i) => (
           <Star key={i} className="h-4 w-4" strokeWidth={1.75} />
         ))}
@@ -54,7 +63,12 @@ export function StarRating({
         style={{ width: `${pct}%` }}
         aria-hidden="true"
       >
-        <span className="flex gap-0.5 text-clay-deep">
+        <span
+          className={cn(
+            "flex gap-0.5",
+            tone === "dark" ? "text-clay" : "text-clay-deep",
+          )}
+        >
           {[0, 1, 2, 3, 4].map((i) => (
             <Star key={i} className="h-4 w-4 fill-current" strokeWidth={1.75} />
           ))}

@@ -22,11 +22,20 @@ import { Reveal } from "@/components/site/reveal";
 import { SectionHeading } from "@/components/site/section-heading";
 import { Hero } from "@/components/site/hero";
 import { MarqueeBand } from "@/components/site/marquee";
+import { CardMarquee } from "@/components/site/card-marquee";
 import { ServicesIndex } from "@/components/site/services-index";
 import { Pathway } from "@/components/site/pathway";
-import { db } from "@/lib/db";
 import { getOperatingHours, getSettings } from "@/lib/settings";
+import {
+  getPublishedExercises,
+  getPublishedServices,
+} from "@/lib/catalog";
 import { DAY_NAMES_SHORT, formatTime12h } from "@/lib/content";
+import {
+  getReviewSnapshot,
+  maybeSyncIfStale,
+} from "@/lib/google-reviews";
+import { StarRating } from "./reviews/_components/review-parts";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -47,32 +56,40 @@ const CATEGORY_ICONS: Record<string, typeof Activity> = {
 };
 
 async function getHomeData() {
-  const [services, exercises] = await Promise.all([
-    db.service
-      .findMany({
-        where: { status: "published" },
-        orderBy: { sortOrder: "asc" },
-        include: { category: { select: { name: true, slug: true } } },
-      })
-      .catch(() => []),
-    db.exercise
-      .findMany({
-        where: { status: "published", featured: true },
-        orderBy: { sortOrder: "asc" },
-        take: 6,
-        include: { category: { select: { name: true, slug: true } } },
-      })
-      .catch(() => []),
+  const [services, allExercises, reviewSnap] = await Promise.all([
+    getPublishedServices(),
+    getPublishedExercises(),
+    getReviewSnapshot(),
   ]);
-  return { services, exercises };
+  // Featured rail (same filter/order the direct DB query used).
+  const exercises = allExercises.filter((e) => e.featured).slice(0, 6);
+  return { services, exercises, exerciseCount: allExercises.length, reviewSnap };
+}
+
+const DAY_FMT = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: SITE.timezone,
+});
+
+function formatDay(iso: string): string {
+  try {
+    return DAY_FMT.format(new Date(iso));
+  } catch {
+    return iso;
+  }
 }
 
 export default async function HomePage() {
-  const [settings, hours, { services, exercises }] = await Promise.all([
-    getSettings(),
-    getOperatingHours(),
-    getHomeData(),
-  ]);
+  const [settings, hours, { services, exercises, exerciseCount, reviewSnap }] =
+    await Promise.all([getSettings(), getOperatingHours(), getHomeData()]);
+
+  // Keep the Google review cache warm when that integration is configured.
+  // Never awaited — the page renders from the cache either way.
+  void maybeSyncIfStale().catch(() => {});
+
+  const hasReviews = reviewSnap.reviews.length > 0;
 
   const openDays = hours.filter((h) => h.isOpen);
   const hoursOneLine =
@@ -93,10 +110,6 @@ export default async function HomePage() {
     imageUrl: s.imageUrl,
     categoryName: s.category?.name ?? null,
   }));
-
-  const exerciseCount = await db.exercise
-    .count({ where: { status: "published" } })
-    .catch(() => exercises.length);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -436,11 +449,14 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* horizontal rail — native scroll, Lenis-safe via data-lenis-prevent */}
+        {/* auto-scrolling card rail — no scrollbar; hover pauses the drift,
+            hold & drag (mouse / touch) to browse either way */}
         <Reveal delay={0.15} className="mt-10 sm:mt-14">
-          <div
-            data-lenis-prevent
-            className="scroll-warm flex snap-x snap-mandatory gap-5 overflow-x-auto px-5 pb-4 sm:px-8 lg:px-10 xl:px-[max(2.5rem,calc((100vw-72rem)/2))]"
+          <CardMarquee
+            ariaLabel="Featured guided exercises — auto-scrolling; hover to pause, drag to browse"
+            direction="left"
+            speed={30}
+            className="px-5 sm:px-8 lg:px-10 xl:px-[max(2.5rem,calc((100vw-72rem)/2))]"
           >
             {exercises.map((exercise) => {
               const Icon =
@@ -450,7 +466,7 @@ export default async function HomePage() {
                 <Link
                   key={exercise.id}
                   href={`/exercises/${exercise.slug}`}
-                  className="group flex w-[16.5rem] shrink-0 snap-start flex-col rounded-3xl border border-border/70 bg-card p-6 transition-all duration-300 hover:-translate-y-1.5 hover:border-clay/60 hover:shadow-xl hover:shadow-primary/10 sm:w-[17.5rem]"
+                  className="group flex w-[16.5rem] shrink-0 flex-col rounded-3xl border border-border/70 bg-card p-6 transition-all duration-300 hover:-translate-y-1.5 hover:border-clay/60 hover:shadow-xl hover:shadow-primary/10 sm:w-[17.5rem]"
                 >
                   <div className="flex items-center justify-between">
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-clay/35 bg-gold-soft/60 text-clay-deep transition-colors duration-300 group-hover:border-clay group-hover:bg-clay group-hover:text-primary">
@@ -476,7 +492,7 @@ export default async function HomePage() {
                 </Link>
               );
             })}
-          </div>
+          </CardMarquee>
         </Reveal>
         <div className="site-container">
           <Reveal delay={0.2}>
@@ -516,6 +532,87 @@ export default async function HomePage() {
               where real patients share real experiences. Read them where they
               were written.
             </p>
+          </Reveal>
+        </div>
+
+        {hasReviews && (
+          <>
+            {reviewSnap.rating && (
+              <Reveal delay={0.08}>
+                <div className="site-container mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+                  <StarRating
+                    tone="dark"
+                    value={reviewSnap.rating.value}
+                    count={reviewSnap.rating.count}
+                    labelPrefix="Average rating"
+                  />
+                  <p className="text-sm leading-relaxed text-primary-foreground/75">
+                    Average of the {reviewSnap.rating.count}{" "}
+                    {reviewSnap.rating.count === 1 ? "review" : "reviews"}{" "}
+                    shown below, from the clinic&apos;s Google listing.
+                  </p>
+                </div>
+              </Reveal>
+            )}
+
+            {/* auto-scrolling review rail — drifts the opposite way to the
+                exercise rail; hover pauses, hold & drag to browse */}
+            <Reveal delay={0.14} className="mt-10">
+              <CardMarquee
+                ariaLabel="Google reviews from patients — auto-scrolling; hover to pause, drag to browse"
+                direction="right"
+                speed={24}
+                className="px-5 sm:px-8 lg:px-10 xl:px-[max(2.5rem,calc((100vw-72rem)/2))]"
+              >
+                {reviewSnap.reviews.map((review) => {
+                  const author = review.author ?? "Google user";
+                  const initial = author.trim().charAt(0).toUpperCase() || "G";
+                  const when =
+                    review.relativeTime ??
+                    (review.postedAt ? formatDay(review.postedAt) : null);
+                  return (
+                    <article
+                      key={review.id}
+                      className="flex w-[19rem] shrink-0 flex-col rounded-2xl border border-primary-foreground/15 bg-primary-foreground/[0.05] p-5 transition-colors duration-300 hover:border-clay/50 sm:w-[20rem]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-clay/15 font-display text-sm font-semibold text-clay"
+                        >
+                          {initial}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold tracking-tight text-primary-foreground">
+                            {author}
+                          </p>
+                          {when && (
+                            <p className="text-xs text-primary-foreground/60">
+                              {when}
+                            </p>
+                          )}
+                        </div>
+                        <StarRating
+                          tone="dark"
+                          value={review.rating}
+                          labelPrefix="Rated"
+                        />
+                      </div>
+                      {review.text && (
+                        <p className="mt-3 line-clamp-5 whitespace-pre-line text-sm leading-relaxed text-primary-foreground/85">
+                          {review.text}
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
+              </CardMarquee>
+            </Reveal>
+          </>
+        )}
+
+        <div className="site-container text-center">
+          <Reveal delay={0.1}>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <a
                 href={settings.mapsUrl}
@@ -536,8 +633,9 @@ export default async function HomePage() {
               </Link>
             </div>
             <p className="mx-auto mt-8 max-w-md text-xs leading-relaxed text-primary-foreground/55">
-              A live review feed appears here once the clinic&apos;s authorized
-              Google integration is connected — never fabricated placeholders.
+              {hasReviews
+                ? "Reviews and ratings appear exactly as patients posted them on Google — never edited, selected or invented."
+                : "Reviews from the clinic's Google listing will appear here exactly as patients wrote them — never edited, never invented."}
             </p>
           </Reveal>
         </div>
