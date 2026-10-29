@@ -13,11 +13,13 @@ import {
   MessageSquare,
   Settings,
   Stethoscope,
+  UserCog,
   Users,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { fbAuth } from "@/lib/firebase";
 import { apiFetch } from "../_lib/client";
 
 const LINKS = [
@@ -30,6 +32,13 @@ const LINKS = [
   { href: "/admin/stories", label: "Stories", icon: BookHeart },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
+
+/** Owner-only — the staff access registry (approvals). */
+const ADMIN_LINK = {
+  href: "/admin/users",
+  label: "Access",
+  icon: UserCog,
+} as const;
 
 function isActive(pathname: string, href: string) {
   return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
@@ -52,6 +61,14 @@ export function AdminNav({
     setSigningOut(true);
     try {
       await apiFetch("/api/admin/auth/logout", "POST");
+      // Also close the Firebase client session so the next person on this
+      // browser starts from a clean account (best-effort, never blocks).
+      try {
+        const { signOut: fbSignOut } = await import("firebase/auth");
+        await fbSignOut(fbAuth());
+      } catch {
+        /* Firebase may not have a session here — nothing to close. */
+      }
       toast.success("Signed out.");
       router.replace("/admin/login");
       router.refresh();
@@ -100,26 +117,28 @@ export function AdminNav({
         </div>
         <nav aria-label="Admin sections" className="-mx-1 overflow-x-auto">
           <ul className="flex min-w-max items-center gap-1 px-1">
-            {LINKS.map(({ href, label, icon: Icon }) => {
-              const active = isActive(pathname, href);
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors focus-visible:outline-ring focus-visible:outline-2 focus-visible:outline-offset-2",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                    )}
-                  >
-                    <Icon className="size-4" aria-hidden="true" />
-                    {label}
-                  </Link>
-                </li>
-              );
-            })}
+            {(role === "admin" ? [...LINKS, ADMIN_LINK] : LINKS).map(
+              ({ href, label, icon: Icon }) => {
+                const active = isActive(pathname, href);
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors focus-visible:outline-ring focus-visible:outline-2 focus-visible:outline-offset-2",
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <Icon className="size-4" aria-hidden="true" />
+                      {label}
+                    </Link>
+                  </li>
+                );
+              }
+            )}
           </ul>
         </nav>
       </div>

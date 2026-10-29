@@ -60,7 +60,11 @@ interface DragState {
  *
  * Accessibility: the region is a labelled landmark; only the first copy of
  * the cards is exposed to assistive tech and the keyboard — the duplicates
- * are aria-hidden + inert, and focus anywhere inside pauses the drift.
+ * are aria-hidden and stripped from the tab order (their links stay
+ * mouse/touch-clickable: EVERY visible card is a real, working link), and
+ * focus anywhere inside pauses the drift. When keyboard focus lands on a
+ * card that the drift has carried off-screen, the rail repositions itself
+ * to bring that card back into view.
  */
 export function CardMarquee({
   children,
@@ -154,6 +158,59 @@ export function CardMarquee({
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [apply, direction, speed]);
+
+  /* ------------------------------------------------- duplicate clickability
+   * The duplicate groups must stay CLICKABLE (they are what the visitor is
+   * looking at most of the time — the drift carries the first copy off-screen
+   * within seconds), so they are NOT marked inert. Instead they are
+   * aria-hidden and removed from the keyboard tab order (tabindex="-1" on
+   * their interactive descendants): screen-reader and keyboard users cycle
+   * through exactly one copy of each card, while mouse/touch users can click
+   * every visible card.
+   *
+   * NOTE: this runs after every re-render of `children`/`copies`. React never
+   * re-parents these DOM nodes afterwards (the groups are stable containers),
+   * so the attribute edits persist until the content itself changes.
+   */
+  useIsoLayoutEffect(() => {
+    const track = trackRef.current;
+    const first = groupRef.current;
+    if (!track) return;
+    const selector =
+      'a[href], button, input, select, textarea, area[href], [tabindex]:not([tabindex="-1"])';
+    for (const group of Array.from(track.children)) {
+      if (group === first) continue;
+      for (const el of group.querySelectorAll<HTMLElement>(selector)) {
+        el.setAttribute("tabindex", "-1");
+      }
+    }
+  }, [copies, children]);
+
+  /* ---------------------------------- keyboard focus follows the content
+   * Focusing a card the drift has scrolled off-screen must not rely on the
+   * browser scrolling the clipped wrapper — the rail repositions itself so
+   * the focused card is visible, and any accidental wrapper scrollLeft is
+   * reset (overflow-hidden containers are still programmatically scrollable,
+   * which would visually break the seamless loop).
+   */
+  const bringFocusIntoView = useCallback((el: Element) => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    if (wrap.scrollLeft !== 0) wrap.scrollLeft = 0;
+    const wrapRect = wrap.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const margin = 24;
+    let shift = 0;
+    if (rect.left < wrapRect.left + margin) {
+      shift = wrapRect.left + margin - rect.left;
+    } else if (rect.right > wrapRect.right - margin) {
+      shift = wrapRect.right - margin - rect.right;
+    }
+    if (shift !== 0) {
+      motion.current.offset -= shift;
+      apply();
+    }
+  }, [apply]);
 
   /* ------------------------------------------------------------- dragging */
   /*
@@ -264,7 +321,13 @@ export function CardMarquee({
       ref={wrapRef}
       role="region"
       aria-label={ariaLabel}
-      className={cn("relative overflow-hidden", className)}
+      className={cn(
+        "relative overflow-hidden",
+        // Cards are links first: show the hand over them, grab only on the
+        // empty rail background — and grabbing everywhere while dragging.
+        dragging ? "[&_a]:cursor-grabbing" : "[&_a]:cursor-pointer",
+        className
+      )}
       style={style}
       onPointerDown={onPointerDown}
       onPointerEnter={() => {
@@ -276,8 +339,10 @@ export function CardMarquee({
       onFocus={(e) => {
         /* Pause for keyboard focus only — mouse presses focus cards too,
            and that must not freeze the rail mid-read. */
-        motion.current.focus =
-          e.target instanceof Element && e.target.matches(":focus-visible");
+        const el = e.target instanceof Element ? e.target : null;
+        const keyboard = el?.matches(":focus-visible") ?? false;
+        motion.current.focus = keyboard;
+        if (keyboard && el) bringFocusIntoView(el);
       }}
       onBlur={() => {
         motion.current.focus = false;
@@ -293,7 +358,6 @@ export function CardMarquee({
             ref={i === 0 ? groupRef : undefined}
             className={cn("flex shrink-0", groupClassName)}
             aria-hidden={i > 0 ? true : undefined}
-            inert={i > 0 ? true : undefined}
           >
             {children}
           </div>

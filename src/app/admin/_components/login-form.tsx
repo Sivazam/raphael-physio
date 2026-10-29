@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { KeyRound } from "lucide-react";
+import { KeyRound, UserRoundPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,14 +35,20 @@ function firebaseErrorMessage(code: string): string {
     case "auth/user-not-found":
     case "auth/wrong-password":
       return "Incorrect email or password.";
+    case "auth/email-already-in-use":
+      return "An account with that email already exists — sign in instead.";
+    case "auth/weak-password":
+      return "That password is too weak — use at least 8 characters.";
+    case "auth/invalid-email":
+      return "That email address doesn't look right.";
     case "auth/too-many-requests":
       return "Too many attempts — this account is temporarily locked. Try again shortly.";
     case "auth/network-request-failed":
-      return "Could not reach Google — check the connection, or use offline sign-in below.";
+      return "Could not reach Google — check the connection and try again.";
     case "auth/operation-not-allowed":
       return "This sign-in method is disabled in the Firebase console.";
     case "auth/unauthorized-domain":
-      return "This preview domain is not authorised in Firebase (Authentication → Settings → Authorized domains). Use offline sign-in below for now.";
+      return "This preview domain is not authorised in Firebase (Authentication → Settings → Authorized domains).";
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
       return "Google sign-in was cancelled.";
@@ -53,43 +59,55 @@ function firebaseErrorMessage(code: string): string {
   }
 }
 
+interface ExchangeResponse {
+  access: "granted" | "pending";
+  user: { name: string | null; email: string };
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const target = safeNext(searchParams.get("next"));
 
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [offlineMode, setOfflineMode] = useState(!firebaseConfigured);
   const redirected = useRef(false);
 
-  // Already signed in? Head straight to the dashboard (full verification —
-  // the /me route checks the signature, unlike the edge middleware).
+  // Already signed in? Head straight to the right screen — /me performs the
+  // full verification and reports whether the account is approved.
   useEffect(() => {
     if (redirected.current) return;
     redirected.current = true;
     fetch("/api/admin/auth/me")
-      .then((res) => {
-        if (res.ok) {
-          router.replace(target);
-        }
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as ExchangeResponse & { ok?: boolean };
+        router.replace(data.access === "pending" ? "/admin/waiting" : target);
       })
       .catch(() => {
         /* stay on the sign-in page */
       });
   }, [router, target]);
 
-  /** Trade a Firebase ID token for the clinic's admin session cookie. */
+  /** Trade a Firebase ID token for the clinic's session cookie. */
   async function exchangeFirebaseToken(idToken: string) {
-    const data = await apiFetch<{ user: { name: string | null } }>(
+    const data = await apiFetch<ExchangeResponse>(
       "/api/admin/auth/firebase",
       "POST",
       { idToken }
     );
+    if (data.access === "pending") {
+      toast.success("Account registered — awaiting the clinic's approval.");
+      router.replace("/admin/waiting");
+      router.refresh();
+      return;
+    }
     toast.success(
       data.user?.name
         ? `Welcome back, ${data.user.name.split(" ")[0]}.`
@@ -104,11 +122,28 @@ export function LoginForm() {
     if (submitting) return;
     setError(null);
     setFieldErrors({});
+
+    if (mode === "signup" && name.trim().length < 2) {
+      setFieldErrors({ name: "Please enter the staff member's name." });
+      return;
+    }
+    if (password.length < (mode === "signup" ? 8 : 1)) {
+      setFieldErrors({
+        password:
+          mode === "signup"
+            ? "Use at least 8 characters."
+            : "Please enter your password.",
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      if (offlineMode) {
-        // Offline path — the clinic's own scrypt-backed login (no Google).
-        const data = await apiFetch<{ user: { name: string | null } }>(
+      // Without a Firebase project wired up (never the case on this site —
+      // the clinic's config is baked in) the local database login is the
+      // only option; otherwise Firebase is THE account system.
+      if (!firebaseConfigured) {
+        const data = await apiFetch<ExchangeResponse>(
           "/api/admin/auth/login",
           "POST",
           { email, password }
@@ -123,17 +158,28 @@ export function LoginForm() {
         return;
       }
 
-      // Firebase email/password → ID token → clinic session.
-      const { signInWithEmailAndPassword } = await import(
-        "firebase/auth"
-      );
-      const cred = await signInWithEmailAndPassword(
-        fbAuth(),
-        email,
-        password
-      );
-      const idToken = await cred.user.getIdToken();
-      await exchangeFirebaseToken(idToken);
+      if (mode === "signup") {
+        const { createUserWithEmailAndPassword, updateProfile } = await import(
+          "firebase/auth"
+        );
+        const cred = await createUserWithEmailAndPassword(
+          fbAuth(),
+          email,
+          password
+        );
+        await updateProfile(cred.user, { displayName: name.trim() });
+        const idToken = await cred.user.getIdToken();
+        await exchangeFirebaseToken(idToken);
+      } else {
+        const { signInWithEmailAndPassword } = await import("firebase/auth");
+        const cred = await signInWithEmailAndPassword(
+          fbAuth(),
+          email,
+          password
+        );
+        const idToken = await cred.user.getIdToken();
+        await exchangeFirebaseToken(idToken);
+      }
     } catch (err) {
       const code =
         typeof err === "object" && err && "code" in err
@@ -199,11 +245,12 @@ export function LoginForm() {
           priority
         />
         <CardTitle className="font-display text-xl">
-          Clinic staff sign-in
+          {mode === "signin" ? "Clinic staff sign-in" : "Create a staff account"}
         </CardTitle>
         <CardDescription>
-          {SITE.shortName} — Rajamahendravaram. This area is for clinic staff
-          only.
+          {mode === "signin"
+            ? `${SITE.shortName} — Rajamahendravaram. This area is for clinic staff only.`
+            : "New team members register here — the clinic owner then approves access."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -215,6 +262,31 @@ export function LoginForm() {
             >
               {error}
             </p>
+          ) : null}
+
+          {mode === "signup" ? (
+            <div className="grid gap-2">
+              <Label htmlFor="login-name">Your name</Label>
+              <Input
+                id="login-name"
+                type="text"
+                name="name"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-invalid={Boolean(fieldErrors.name)}
+                aria-describedby={
+                  fieldErrors.name ? "login-name-error" : undefined
+                }
+                placeholder="Dr. A. Kumar"
+              />
+              {fieldErrors.name ? (
+                <p id="login-name-error" className="text-sm text-destructive">
+                  {fieldErrors.name}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <div className="grid gap-2">
@@ -245,7 +317,7 @@ export function LoginForm() {
               id="login-password"
               type="password"
               name="password"
-              autoComplete="current-password"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -262,8 +334,18 @@ export function LoginForm() {
           </div>
 
           <Button type="submit" disabled={busy} className="mt-1">
-            <KeyRound className="size-4" aria-hidden="true" />
-            {submitting ? "Signing in…" : "Sign in"}
+            {mode === "signin" ? (
+              <KeyRound className="size-4" aria-hidden="true" />
+            ) : (
+              <UserRoundPlus className="size-4" aria-hidden="true" />
+            )}
+            {submitting
+              ? mode === "signup"
+                ? "Creating account…"
+                : "Signing in…"
+              : mode === "signup"
+                ? "Create account"
+                : "Sign in"}
           </Button>
 
           {firebaseConfigured ? (
@@ -289,20 +371,22 @@ export function LoginForm() {
                 )}
                 {googleBusy ? "Opening Google…" : "Continue with Google"}
               </Button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOfflineMode((v) => !v);
-                  setError(null);
-                }}
-                className="text-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-              >
-                {offlineMode
-                  ? "Use Firebase sign-in instead"
-                  : "Use offline sign-in instead"}
-              </button>
             </>
           ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode((m) => (m === "signin" ? "signup" : "signin"));
+              setError(null);
+              setFieldErrors({});
+            }}
+            className="text-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            {mode === "signin"
+              ? "New staff member? Create an account"
+              : "Already have an account? Sign in"}
+          </button>
 
           <p className="text-center text-sm text-muted-foreground">
             <Link

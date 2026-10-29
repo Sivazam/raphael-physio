@@ -248,6 +248,40 @@ Operational notes:
   SQLite never sees them) and only in SQLite locally — pick one environment
   as your operational console and stick to it.
 
+### Staff accounts & the approval gate (users / appAccess)
+
+Staff self-service accounts work through Firebase and a Firestore
+`users` collection — this is also **how email/password users are created**
+(there is no admin-side user creation; the account holder registers):
+
+1. A staff member opens `/admin/login` and either continues with **Google**
+   or uses **"New staff member? Create an account"** (name + email +
+   password — the Firebase Auth account is created in that step).
+2. The sign-in exchanges the Firebase ID token at `/api/admin/auth/firebase`.
+   Clinic admin identities (AdminUser rows, `ADMIN_FIREBASE_EMAILS`, Firestore
+   `admins` docs, the baked clinic identity) go **straight to the
+   dashboard**. Everyone else gets a `users` document in Firestore
+   (doc id = email) created with **`appAccess: false`** and lands on the
+   **waiting screen** (`/admin/waiting`) — signed in, but no dashboard.
+3. The owner approves the account: either flip `appAccess` to `true` in the
+   Firebase console (Firestore → `users` → the email's document), or —
+   easier — sign in as an admin and use **Admin → Access**: every registered
+   account is listed there with an approve/revoke switch.
+4. The approved user reaches the dashboard **on their next page load** (the
+   waiting screen re-checks automatically every 30 seconds, and the
+   dashboard layout re-reads the flag on every request — revoking access
+   works the same way, at the next request).
+
+Notes:
+
+- The `users` collection is never seeded by `db:seed-firestore` — it fills
+  up as real people sign in.
+- The offline (scrypt) email/password login still exists as a route but is
+  no longer offered in the UI; the sign-in form is Firebase-first (the
+  offline path engages only if no Firebase project were configured at all).
+- The service-worker cache can show a stale login card for a moment after
+  deploys — a normal reload clears it.
+
 ## 12. Pre-launch checklist
 
 1. Every item in `docs/content-needed.md` resolved or consciously deferred
