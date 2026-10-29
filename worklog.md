@@ -469,3 +469,53 @@ Work Log:
 
 Stage Summary:
 - The navbar lockup is now deterministic across devices AND font-load races: it can never wrap, never clip, and keeps 16–84px clearance from the controls on every common mobile width (360–428). Desktop is pixel-clean with the original 18px title and a grid-aligned Book pill. Root cause was a Chrome flexbox-intrinsic-sizing + font-display:swap race against Fraunces' variable-font metrics, not merely a sizing typo.
+
+---
+Task ID: 14
+Agent: orchestrator (main session)
+Task: Rebuild + redeploy the project zip hand-off artifact after sandbox restart (zip is gitignored so it vanished on restore; user requested the updated download link).
+
+Work Log:
+- Verified codebase state first: git clean at 010ebd4 (iPhone SE navbar fix) which includes 4526ecb (full media management). tsc: zero src/ errors; lint: 0 errors. Dev server healthy on :3000.
+- Rebuilt public/raphael-physio-project.zip via the standard rsync procedure (excludes node_modules/.next/.git/.env/db/*.db/upload/download/skills/logs/.qa/tool-results/*.zip/*.tsbuildinfo/next-env.d.ts). 21.3 MB, 281 files, unzip -t INTEGRITY_OK.
+- Spot-checked zip contains every recent feature: admin/_components/media-field.tsx, lib/uploads.ts (Firebase driver), site/logo.tsx (375px fix), updated prisma/schema.prisma, .env.example with FIREBASE_* contract, committed demo upload public/uploads/exercises/.
+- Serving verified: GET /raphael-physio-project.zip → 200, application/zip, Content-Length 21269838, Accept-Ranges bytes; full 21,269,838 bytes downloaded via curl. Footer "Project files (.zip)" link intact (footer.tsx:248).
+
+Stage Summary:
+- Updated complete-codebase zip live at /raphael-physio-project.zip — includes media management (image URL + upload, YouTube + video upload with Firebase Storage/local fallback) and the iPhone SE 375×667 navbar fix, on top of all prior work.
+
+---
+Task ID: 15
+Agent: orchestrator (main session)
+Task: User-requested full audit — every screen/section, engagement assessment, footer zip-link removal, scroll-to-top button, Indian medical aesthetics + imagery overhaul.
+
+Work Log:
+- **Critical environment repair first:** the sandbox restore had wiped the database (all 11 tables empty) and truncated .env to just DATABASE_URL. Reseeded (9 services, 10 exercises, 2 therapists, hours, settings), restored .env incl. ADMIN_* + session secret; login re-verified 200. Admin user now also exists in Firebase Auth (see Task 16).
+- **Audit:** every public route at 1440×900 + key routes at 375×667 — zero page errors; viewport-slice screenshots + VLM design review per section (full-page shots were illegible at scale; slices were the reliable method).
+- **Engagement verdict:** site is fundamentally strong (typography/hierarchy/rhythm pass), with 6 surgical weak spots fixed: stat numbers now clay/gold + 30-40% larger; ServicesIndex rows gained anatomical glyph tiles (new src/lib/service-icons.ts mapping slug→Lucide icon); in-patient/day-care format cards gained a warm gold-soft gradient; homepage exercise rail + exercises page cards + list rows: heavy bg-ink icon tiles softened to gold-soft bordered tiles; /services specialist list rows gained the same glyph tiles.
+- **Footer zip link removed** (user downloads via /raphael-physio-project.zip directly — URL keeps serving). Unused FolderArchive import dropped.
+- **Scroll-to-top floating button** (src/components/site/scroll-top.tsx): appears bottom-right after 640px of scroll, gold progress ring (framer-motion pathLength), glides home through Lenis (window.__lenis exposed by smooth-scroll.tsx with safe typing + cleanup), prefers-reduced-motion honoured, safe-area-aware, a11y labelled. E2E verified: hidden at top → visible mid-page → click glides to 0 → hides.
+- **Indian imagery overhaul:** VLM audit scored ALL 8 stock photos 1-3/5 for Indian authenticity (African/East-Asian/Caucasian subjects — jarring for Rajamahendravaram). Generated 9 Indian-context replacements (therapist-band hero portrait, dedicated team pair photo, treatment room, rehab gym, gait training, band-gym wide, saree-elder care, manual therapy, inpatient room) with warm-editorial prompts; two-round VLM QA gate (ethnicity + artifact checks) — 4 regenerated for artifacts/wrong ethnicity, gait-training twice (East-Asian-looking therapist). All deployed to public/images/; team page now uses its own photo instead of reusing the hero; width/height props + alts updated everywhere; attribution docs rewritten honestly (AI-generated, VLM-QA'd, pre-launch placeholders). Removed the orphaned non-Indian uploads/exercises demo image.
+- **Stale-image root cause chase (3 layers):** (1) browser profile HTTP+SW caches → wiped /tmp/agent-browser-chrome-*; (2) dev-server in-memory optimizer cache → restart; (3) the real one: Next 16 caches optimized images under .next/dev/cache/images (NOT .next/cache/images) — purged + restarted; both Accept-variants (webp/jpeg) then served the new bytes. SW cache version bumped v1→v2 so any returning visitor refreshes; stale icon.svg precache entry removed.
+- **Final VLM pass (fresh screenshots): ALL PASS** — Indian people/settings in hero+team, gold stats, icon tiles, soft exercise tiles, zero layout breakage, "engaging + Indian" verdict. Mobile 375 re-verified (portrait hero 0.75 ratio, nav 69px, no errors).
+- lint 0 errors; tsc zero src/ errors.
+
+Stage Summary:
+- Audit → 6 engagement micro-fixes + honest Indian imagery (9 VLM-QA'd generated photos) + scroll-to-top + footer zip link removed. Deep cache forensics (Next 16 dev image cache path) permanently fixed stale-imagery serving. Committed as e2714f3.
+
+---
+Task ID: 16
+Agent: orchestrator (main session)
+Task: Firebase integration per clinic's console config — email/password + Google auth for admin, Storage for all media uploads, Firestore for links + corresponding documents.
+
+Work Log:
+- **Architecture:** Firebase web config (public by design, Google-documented) lives in src/lib/firebase-config.ts with env overrides (NEXT_PUBLIC_FIREBASE_* now in .env + .env.example). Client singletons (app/auth/storage/firestore) in src/lib/firebase.ts; analytics guarded via isSupported in FirebaseAnalytics component (site layout). Prisma/SQLite remains the public site's source of truth; Firebase adds auth + storage + registry.
+- **Auth:** /admin/login now signs in with Firebase email/password (signInWithEmailAndPassword) or Google (signInWithPopup, multi-colour G mark) → sends the ID token to new POST /api/admin/auth/firebase, which verifies it against Google's identitytoolkit accounts:lookup (server-side, HTTPS) and authorizes the email against AdminUser rows + optional ADMIN_FIREBASE_EMAILS allowlist before issuing the standard HMAC session cookie. Firebase sign-in alone NEVER grants access (holds even with test-mode rules). Friendly error mapping incl. auth/unauthorized-domain for unauthorized preview domains. "Use offline sign-in instead" toggle preserves the original scrypt login path when Firebase is unreachable/unconfigured.
+- **Created the admin user in the real Firebase project** (accounts:signUp REST): admin@raphaelphysio.local / RaphaelAdmin#2025 — email/password login works against Google's auth TODAY.
+- **Storage:** MediaField uploads now go browser → Firebase Storage directly (uploadBytes with contentType + immutable cache-control) when a Firebase user is signed in; path {folder}/{timestamp}-{rand}-{safe-name}; getDownloadURL returned and saved with the record. Client-side type/size validation (10MB images / 64MB videos) added before upload. Falls back to the server /api/admin/upload route when no Firebase session (offline sign-in). Driver shown in the UI ("Stored in Firebase Storage — link registered in Firestore").
+- **Firestore:** every upload logs a doc in the `media` collection (url, path, folder, kind, contentType, sizeBytes, fileName, uploadedBy, serverTimestamp). After every successful exercise/team/service/story save, the four admin tables mirror the entity into Firestore (mirrorEntity: id-keyed doc with title/name, slug, media links, status + mirroredAt) — best-effort, failures warn in console and never block the CMS.
+- **E2E verified against the LIVE Firebase project:** Firebase email/password sign-in → 200 → admin dashboard (POST /api/admin/auth/firebase 200 in dev.log); Google button renders (popup needs the serving domain authorized in Firebase console — error handled); upload of photo-therapist-band.jpg through the exercises dialog → real bucket URL (firebasestorage.googleapis.com/v0/b/raphaelphysiocenter.firebasestorage.app/o/exercises/…) publicly serving 130,424 bytes image/jpeg; PATCH 200 saved it to the exercise; Firestore REST read-back confirms BOTH the media doc AND the exercises/{id} mirror (title/slug/imageUrl/status); the public /exercises/shoulder-blade-squeeze page renders the Firebase-hosted image through next/image (792×1056). Services-table save → PATCH 200 + services/{id} mirror confirmed in Firestore. Sign-out + offline sign-in fallback re-verified (POST /api/admin/auth/login 200 → dashboard). One transient hydration warning on first-compile of edited modules never recurred across 5 consecutive loads (dev/HMR artifact). next.config images.remotePatterns already allows https ** so Firebase URLs optimize out of the box. lint 0 errors; tsc zero src/ errors.
+- Zip rebuilt: 24.9 MB, 295 files, integrity OK, serves 200 application/zip.
+
+Stage Summary:
+- Firebase is live end-to-end on the clinic's real project (raphaelphysiocenter): Auth (email/password working today; Google ready once preview/production domains are authorized in the console), Storage (browser-direct uploads with public links), Firestore (media registry + per-entity mirrors with corresponding documents). Admin credentials: admin@raphaelphysio.local / RaphaelAdmin#2025.

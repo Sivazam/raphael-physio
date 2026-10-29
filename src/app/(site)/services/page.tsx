@@ -9,6 +9,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getServiceIcon } from "@/lib/service-icons";
 import { PageHeader } from "@/components/site/page-header";
 import { SectionHeading } from "@/components/site/section-heading";
 import { Reveal } from "@/components/site/reveal";
@@ -286,12 +287,17 @@ export default async function ServicesPage() {
             </Reveal>
             <Reveal delay={0.1}>
               <ul className="mt-12 divide-y divide-border/70 overflow-hidden rounded-3xl border border-border/70 bg-card">
-                {rest.map((service) => (
+                {rest.map((service) => {
+                  const Glyph = getServiceIcon(service.slug);
+                  return (
                   <li key={service.id}>
                     <Link
                       href={`/services/${service.slug}`}
                       className="group flex flex-col gap-2 px-5 py-5 transition-colors hover:bg-accent/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:gap-5 sm:px-7"
                     >
+                      <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-clay/30 bg-gold-soft/60 text-clay-deep transition-colors duration-300 group-hover:border-clay/60 group-hover:bg-clay/15 group-hover:text-clay sm:flex">
+                        <Glyph className="h-5.5 w-5.5" aria-hidden="true" />
+                      </span>
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-lg font-semibold tracking-tight group-hover:text-primary">
@@ -313,7 +319,8 @@ export default async function ServicesPage() {
                       />
                     </Link>
                   </li>
-                ))}
+                );
+                })}
               </ul>
             </Reveal>
             <Reveal delay={0.15}>

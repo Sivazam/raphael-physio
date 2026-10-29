@@ -229,9 +229,9 @@ export default async function StoriesPage() {
                   <div className="group relative overflow-hidden rounded-3xl">
                     <Image
                       src="/images/photo-care-strength.jpg"
-                      alt="Illustrative photo: a therapist helping an elderly woman practise a shoulder exercise with light dumbbells beside a window."
-                      width={1600}
-                      height={843}
+                      alt="Illustrative photo: an Indian physiotherapist helping an elderly Indian woman in a saree practise a shoulder exercise with light dumbbells."
+                      width={1024}
+                      height={1024}
                       sizes="(min-width: 1024px) 45vw, (min-width: 640px) 60vw, 90vw"
                       className="aspect-[4/5] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
                     />

@@ -36,6 +36,7 @@ import {
 import { StatusSelect } from "./status-select";
 import { MediaField } from "./media-field";
 import { apiFetch } from "../_lib/client";
+import { mirrorEntity } from "@/lib/firebase-mirror";
 import type { ServiceRow } from "../_lib/types";
 
 const STATUS_OPTIONS = [
@@ -100,6 +101,14 @@ export function ServicesTable({ rows }: { rows: ServiceRow[] }) {
         sortOrder: Number(form.sortOrder) || 0,
         featured: form.featured,
         status: form.status,
+      });
+      void mirrorEntity("services", editing.id, {
+        name: form.name,
+        slug: editing.slug,
+        summary: form.summary,
+        imageUrl: form.imageUrl.trim() || null,
+        status: form.status,
+        featured: form.featured,
       });
       toast.success(`“${form.name}” saved.`);
       setEditing(null);

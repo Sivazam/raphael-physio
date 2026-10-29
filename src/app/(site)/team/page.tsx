@@ -209,10 +209,10 @@ export default async function TeamPage() {
                   />
                   <div className="group relative overflow-hidden rounded-3xl">
                     <Image
-                      src="/images/photo-therapist-band.jpg"
-                      alt="Illustrative photo: a physiotherapist guiding an older patient through a resistance-band exercise in a bright clinic."
-                      width={1600}
-                      height={1127}
+                      src="/images/photo-team-therapy.jpg"
+                      alt="Illustrative photo: two Indian physiotherapists reviewing a patient recovery chart together in a bright rehabilitation clinic."
+                      width={864}
+                      height={1152}
                       sizes="(min-width: 1024px) 45vw, (min-width: 640px) 60vw, 90vw"
                       className="aspect-[4/5] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
                     />

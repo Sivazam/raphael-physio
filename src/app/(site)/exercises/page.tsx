@@ -262,7 +262,7 @@ export default async function ExercisesPage({ searchParams }: ExercisesPageProps
                           className="group flex h-full flex-col rounded-3xl border border-border/70 bg-card p-6 transition-all duration-500 hover:-translate-y-1.5 hover:border-clay/60 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-2 focus-visible:outline-ring"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-clay transition-colors duration-300 group-hover:bg-clay group-hover:text-primary">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-clay/35 bg-gold-soft/60 text-clay-deep transition-colors duration-300 group-hover:border-clay group-hover:bg-clay group-hover:text-primary">
                               <Icon className="h-5 w-5" aria-hidden="true" />
                             </span>
                             <Badge variant="secondary" className="font-normal">
@@ -327,7 +327,7 @@ export default async function ExercisesPage({ searchParams }: ExercisesPageProps
                             href={`/exercises/${exercise.slug}`}
                             className="group flex flex-col gap-3 px-5 py-5 transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:gap-5 sm:px-7"
                           >
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-clay transition-colors duration-300 group-hover:bg-clay group-hover:text-primary">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-clay/35 bg-gold-soft/60 text-clay-deep transition-colors duration-300 group-hover:border-clay group-hover:bg-clay group-hover:text-primary">
                               <Icon className="h-5 w-5" aria-hidden="true" />
                             </span>
                             <div className="min-w-0 flex-1">

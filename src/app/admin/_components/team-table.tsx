@@ -35,6 +35,7 @@ import {
 import { StatusSelect } from "./status-select";
 import { MediaField } from "./media-field";
 import { apiFetch } from "../_lib/client";
+import { mirrorEntity } from "@/lib/firebase-mirror";
 import type { TherapistRow } from "../_lib/types";
 
 const STATUS_OPTIONS = [
@@ -115,6 +116,13 @@ export function TeamTable({ rows }: { rows: TherapistRow[] }) {
         languages: splitList(form.languages),
         expertise: splitList(form.expertise),
         sortOrder: Number(form.sortOrder) || 0,
+        status: form.status,
+      });
+      void mirrorEntity("team", editing.id, {
+        name: form.name,
+        slug: editing.slug,
+        title: form.title.trim() || null,
+        photoUrl: form.photoUrl.trim() || null,
         status: form.status,
       });
       toast.success(`“${form.name}” saved.`);

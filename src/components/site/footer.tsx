@@ -6,7 +6,6 @@ import {
   Clock,
   ArrowRight,
   ArrowUp,
-  FolderArchive,
 } from "lucide-react";
 import { LogoEmblem } from "@/components/site/logo";
 import type { ClinicInfo, DayHours } from "@/lib/settings";
@@ -241,18 +240,6 @@ export function SiteFooter({ settings, hours, services }: FooterProps) {
                 <Link href="/terms" className="link-sweep">
                   Terms
                 </Link>
-              </li>
-              {/* Dev handoff convenience — remove before public launch. */}
-              <li>
-                <a
-                  href="/raphael-physio-project.zip"
-                  download="raphael-physio-project.zip"
-                  className="link-sweep inline-flex items-center gap-1.5"
-                  title="Download the full project source code as a zip archive"
-                >
-                  <FolderArchive className="h-3.5 w-3.5" aria-hidden="true" />
-                  Project files (.zip)
-                </a>
               </li>
             </ul>
             <a

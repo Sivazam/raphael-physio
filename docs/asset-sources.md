@@ -24,60 +24,51 @@ centre's own space, staff, or patients.
 To regenerate the raster icons after replacing the logo master:
 `bun scripts/prepare-assets.ts` (skips re-compressing `logo*.png`).
 
-## 2. Photography — placeholders, two kinds
+## 2. Photography — AI-generated illustrative imagery (9)
 
-Eight photographs currently serve as **illustrative placeholders**
-(`public/images/photo-*.jpg`, max width 1600, ~80% quality progressive JPEG
-via `scripts/prepare-assets.ts`). None depicts the actual clinic.
+All nine photographs (`public/images/photo-*.jpg`) were **generated for this
+project** with the z-ai image-generation service so the imagery reflects the
+people and setting of Rajamahendravaram — Indian therapists and patients,
+local clinic interiors. None depicts the actual clinic, real staff, or real
+patients; each carries "Illustrative photo:" alt text and is never captioned
+as the centre's own space. They remain pre-launch placeholders: the clinic's
+own photographs will replace them when supplied (see
+`docs/content-needed.md` §1).
 
-### 2a. Sourced stock-style images (6) — ⚠ licence placeholder
-
-| File | Subject | Where it is used |
+| File | Subject (people/setting) | Where it is used |
 |---|---|---|
-| `photo-treatment-room.jpg` | Treatment room with plinth | Homepage, services |
-| `photo-rehab-gym.jpg` | Rehabilitation gym | Homepage, services, about |
-| `photo-gait-training.jpg` | Gait training between parallel bars | Services |
-| `photo-band-gym.jpg` | Resistance-band exercise in a gym | About, exercises |
-| `photo-care-strength.jpg` | Supported strength / care work | Homepage, about |
-| `photo-therapist-band.jpg` | Therapist guiding a band exercise | Services |
+| `photo-therapist-band.jpg` | Indian physiotherapist guiding elderly Indian patient, resistance band (864×1152 portrait) | Hero, services |
+| `photo-team-therapy.jpg` | Two Indian physiotherapists reviewing a recovery chart (864×1152 portrait) | Team section |
+| `photo-treatment-room.jpg` | Indian treatment room, empty (1024×1024) | Homepage, about, services |
+| `photo-rehab-gym.jpg` | Indian rehabilitation gym, empty (1152×864) | About, services |
+| `photo-gait-training.jpg` | Indian therapist + elderly Indian patient, parallel bars (1152×864) | Homepage, services |
+| `photo-band-gym.jpg` | Two Indian men, resistance band row (1728×864 wide) | About, services |
+| `photo-care-strength.jpg` | Indian therapist + elderly Indian woman in saree, dumbbell (1024×1024) | About, stories |
+| `photo-manual-therapy.jpg` | Indian therapist's hands, neck therapy (1344×768) | Homepage, services |
+| `photo-inpatient-room.jpg` | Indian in-patient room, bed + walker (1152×864) | Homepage, services |
 
-- **How sourced:** retrieved through the ZAI in-house image-search service
-  (public web imagery re-hosted by the service).
-- **Verification done:** each was checked with a vision model at selection
-  time for subject appropriateness (correct physiotherapy context, no
-  watermarks, no visible third-party branding, no gore or identifiable
-  branding that would misrepresent the clinic).
-- **Licence status: NOT resolved.** The search service does not carry
-  per-image licence records, so these six are treated as **pre-launch
-  placeholders only**. Before public launch they must be replaced by
-  (a) the clinic's own photographs — preferred, see
-  `docs/content-needed.md` §1 — or (b) properly licensed stock with receipts
-  kept in this file's table above.
+- **How generated:** one-off generation script (2026-10-29) with
+  warm-editorial style prompts; every image passed a two-round vision-model
+  QA gate for (a) South Indian appearance of the people, (b) AI-rendering
+  artefacts (garbled text, warped equipment, fused fingers). Two images
+  were regenerated to fix artefacts; gait-training was regenerated twice to
+  remove an East-Asian-looking therapist.
+- **Licence status:** clean — generated for this project, no third-party
+  photographer or stock licence involved. (This also resolves the licence
+  ambiguity of the earlier sourced set.)
+- **Honesty guardrails:** alt text + attribution manifest state the images
+  are illustrative; captions never claim them as the clinic's rooms/staff.
 
-### 2b. AI-generated images (2)
+### History
 
-| File | Subject | Where it is used |
-|---|---|---|
-| `photo-inpatient-room.jpg` | In-patient room with bed and walker | In-patient & day care service page |
-| `photo-manual-therapy.jpg` | Hands-on manual therapy | Manual therapy service page |
-
-- **How generated:** created for this project with the z-ai image-generation
-  service (no third-party photographer involved).
-- **What they depict:** plausible but **not real** interiors/people; they
-  must never be captioned as the clinic's rooms or staff.
-- A vision-model audit (2026-10-27) confirmed both carry typical
-  generation artefacts (structurally impossible walker joinery; fused
-  fingers / airbrushed skin) — consistent with their declared status. No
-  claim is made that they are photographs.
-
-### 2c. Rejected during selection
-
-- `photo-shoulder-therapy.png` (sitting in the **repository root**, not in
-  `public/images`) — sourced alongside the 2a set but **rejected** because
-  the therapist's uniform shows a third-party brand ("Hi Physio"). It is
-  unused by the site and should be deleted from the repo. The un-optimised
-  originals of the 2a photos also sit in the repo root as leftover working
-  files and can be removed once `public/images` is considered final.
+The first photography set (six web-sourced stock-style images + two earlier
+AI-generated interiors, in place 2026-10-27 → 2026-10-29) was fully replaced:
+a vision-model audit found the stock people shots depicted African, East
+Asian, and Caucasian subjects — jarring for a Rajamahendravaram clinic — and
+the two generated interiors carried artefacts. The old files remain in git
+history. Also: `photo-shoulder-therapy.png` (rejected during the original
+selection for showing a third-party brand) still sits unused in the repo
+root and can be deleted.
 
 ## 3. Fonts & icons (code)
 
@@ -99,3 +90,7 @@ out (no embedded API media), and no tracking/analytics pixels are present.
   via pixel-signature matching against the raw downloads plus three
   vision-model passes (the two AI-generated images were confirmed by
   artefact inspection).
+- 2026-10-29 — full replacement: all web-sourced photos (non-Indian
+  subjects) and the two artefacted AI interiors replaced with 9
+  Indian-context generated images, VLM-QA'd in two rounds; team section
+  got a dedicated image (previously reused the hero photo).

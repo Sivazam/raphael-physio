@@ -29,8 +29,8 @@
  * Deliberately NOT included: web push / notifications (not requested).
  */
 
-const STATIC_CACHE = "rph-static-v1";
-const PAGES_CACHE = "rph-pages-v1";
+const STATIC_CACHE = "rph-static-v2";
+const PAGES_CACHE = "rph-pages-v2";
 const KNOWN_CACHES = [STATIC_CACHE, PAGES_CACHE];
 
 /** Path prefixes this worker must never touch (private/administrative). */
@@ -49,7 +49,6 @@ self.addEventListener("install", (event) => {
       const cache = await caches.open(STATIC_CACHE);
       await Promise.all(
         [
-          "/icons/icon.svg",
           "/icons/icon-192.png",
           "/icons/icon-512.png",
           "/icons/maskable-192.png",

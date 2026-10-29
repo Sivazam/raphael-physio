@@ -36,6 +36,7 @@ import { StatusBadge } from "./status-badge";
 import { StatusSelect } from "./status-select";
 import { MediaField } from "./media-field";
 import { apiFetch } from "../_lib/client";
+import { mirrorEntity } from "@/lib/firebase-mirror";
 import type { OptionItem, StoryRow } from "../_lib/types";
 
 const STATUS_OPTIONS = [
@@ -124,6 +125,14 @@ export function StoriesTable({
         consentStatus: form.consentStatus,
         consentReference:
           form.consentReference.trim() === "" ? null : form.consentReference.trim(),
+        status: form.status,
+      });
+      void mirrorEntity("stories", editing.id, {
+        title: form.title,
+        slug: editing.slug,
+        beforeImageUrl: form.beforeImageUrl.trim() || null,
+        afterImageUrl: form.afterImageUrl.trim() || null,
+        consentStatus: form.consentStatus,
         status: form.status,
       });
       toast.success(`“${form.title}” saved.`);

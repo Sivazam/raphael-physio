@@ -36,6 +36,7 @@ import {
 import { StatusSelect } from "./status-select";
 import { MediaField } from "./media-field";
 import { apiFetch } from "../_lib/client";
+import { mirrorEntity } from "@/lib/firebase-mirror";
 import type { ExerciseRow, OptionItem } from "../_lib/types";
 
 const STATUS_OPTIONS = [
@@ -115,6 +116,16 @@ export function ExercisesTable({
         sortOrder: Number(form.sortOrder) || 0,
         featured: form.featured,
         status: form.status,
+      });
+      void mirrorEntity("exercises", editing.id, {
+        title: form.title,
+        slug: editing.slug,
+        summary: form.summary,
+        imageUrl: form.imageUrl.trim() || null,
+        videoUrl: form.videoUrl.trim() || null,
+        youtubeUrl: form.youtubeUrl.trim() || null,
+        status: form.status,
+        featured: form.featured,
       });
       toast.success(`“${form.title}” saved.`);
       setEditing(null);

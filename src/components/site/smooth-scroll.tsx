@@ -3,6 +3,17 @@
 import { useEffect } from "react";
 import Lenis from "lenis";
 
+declare global {
+  interface Window {
+    __lenis?: {
+      scrollTo: (
+        target: number | string | HTMLElement,
+        options?: { duration?: number; offset?: number; immediate?: boolean },
+      ) => void;
+    };
+  }
+}
+
 /**
  * Lenis smooth scrolling — the buttery, weighted scroll feel that
  * separates premium sites from templates.
@@ -29,6 +40,10 @@ export function SmoothScroll() {
     };
     rafId = requestAnimationFrame(raf);
 
+    // Share the instance so site components (e.g. ScrollTop) can glide with
+    // the same weighted easing instead of fighting the rAF loop.
+    window.__lenis = lenis;
+
     // Honour in-page anchors with a smooth, offset-aware glide.
     const onClick = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement)?.closest?.('a[href^="#"]');
@@ -45,6 +60,7 @@ export function SmoothScroll() {
     return () => {
       cancelAnimationFrame(rafId);
       document.removeEventListener("click", onClick);
+      delete window.__lenis;
       lenis.destroy();
     };
   }, []);

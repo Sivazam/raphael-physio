@@ -206,7 +206,7 @@ export default async function HomePage() {
                     <div key={stat.label} className="bg-card p-5 sm:p-6">
                       <dt className="sr-only">{stat.label}</dt>
                       <dd>
-                        <span className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                        <span className="font-display text-5xl font-semibold tracking-tight text-clay-deep sm:text-6xl">
                           {stat.n}
                         </span>
                         <span className="mt-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
@@ -225,9 +225,9 @@ export default async function HomePage() {
                 <figure className="group overflow-hidden rounded-3xl border border-border/60 shadow-xl shadow-primary/10">
                   <Image
                     src="/images/photo-inpatient-room.jpg"
-                    alt="Illustrative image: a calm patient room prepared for in-patient rehabilitation, with a walking frame beside the bed."
+                    alt="Illustrative image: a calm Indian clinic patient room prepared for in-patient rehabilitation, with a walking frame beside the bed."
                     width={672}
-                    height={672}
+                    height={504}
                     sizes="(min-width: 1024px) 32vw, (min-width: 640px) 45vw, 90vw"
                     className="aspect-[4/5] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.05]"
                   />
@@ -244,9 +244,9 @@ export default async function HomePage() {
                 <figure className="group overflow-hidden rounded-3xl border border-border/60 shadow-xl shadow-primary/15 lg:rotate-2">
                   <Image
                     src="/images/photo-gait-training.jpg"
-                    alt="Illustrative photo: a therapist supporting a patient practising walking between parallel bars."
+                    alt="Illustrative photo: an Indian therapist supporting an elderly Indian patient practising walking between parallel bars."
                     width={672}
-                    height={672}
+                    height={504}
                     sizes="(min-width: 1024px) 24vw, (min-width: 640px) 45vw, 90vw"
                     className="aspect-square w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.05]"
                   />
@@ -368,7 +368,7 @@ export default async function HomePage() {
               },
             ].map((card, i) => (
               <Reveal key={card.n} delay={i * 0.12} variant="blur">
-                <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/70 bg-card shadow-sm transition-shadow duration-500 hover:shadow-xl hover:shadow-primary/10">
+                <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-card via-card to-gold-soft/40 shadow-sm transition-shadow duration-500 hover:shadow-xl hover:shadow-primary/10">
                   <div className="relative h-56 overflow-hidden sm:h-64">
                     <Image
                       src={card.img}
@@ -453,7 +453,7 @@ export default async function HomePage() {
                   className="group flex w-[16.5rem] shrink-0 snap-start flex-col rounded-3xl border border-border/70 bg-card p-6 transition-all duration-300 hover:-translate-y-1.5 hover:border-clay/60 hover:shadow-xl hover:shadow-primary/10 sm:w-[17.5rem]"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink text-clay transition-colors duration-300 group-hover:bg-clay group-hover:text-primary">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-clay/35 bg-gold-soft/60 text-clay-deep transition-colors duration-300 group-hover:border-clay group-hover:bg-clay group-hover:text-primary">
                       <Icon className="h-5.5 w-5.5" aria-hidden="true" />
                     </span>
                     <ArrowUpRight

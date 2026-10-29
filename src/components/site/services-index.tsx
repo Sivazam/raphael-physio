@@ -11,6 +11,7 @@ import {
   useSpring,
 } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
+import { getServiceIcon } from "@/lib/service-icons";
 
 /* ------------------------------------------------------------------ *
  * SERVICES INDEX — the editorial "table of contents" pattern.
@@ -33,6 +34,10 @@ export interface IndexService {
   imageUrl: string | null;
   categoryName: string | null;
 }
+
+/** Shared rest-state tile classes for service glyph tiles. */
+const SERVICE_TILE =
+  "relative hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-clay/30 bg-gold-soft/60 text-clay-deep transition-colors duration-300 group-hover:border-clay/60 group-hover:bg-clay/15 group-hover:text-clay lg:flex";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -94,6 +99,7 @@ export function ServicesIndex({ services }: { services: IndexService[] }) {
       <ul className="border-t border-border/70">
         {services.map((service, i) => {
           const num = String(i + 1).padStart(2, "0");
+          const Glyph = getServiceIcon(service.slug);
           return (
             <li key={service.id} className="border-b border-border/70">
               <Link
@@ -111,6 +117,11 @@ export function ServicesIndex({ services }: { services: IndexService[] }) {
                   className="relative font-sans text-xs font-bold tracking-[0.18em] text-clay-deep transition-colors duration-300 group-hover:text-clay sm:text-sm"
                 >
                   {num}
+                </span>
+
+                {/* anatomical glyph — a visual anchor at rest (desktop) */}
+                <span className={SERVICE_TILE}>
+                  <Glyph className="h-5.5 w-5.5" aria-hidden="true" />
                 </span>
 
                 {/* inline thumbnail for touch/small screens */}

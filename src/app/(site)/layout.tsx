@@ -4,6 +4,8 @@ import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { RegisterSw } from "@/components/pwa/register-sw";
 import { SmoothScroll } from "@/components/site/smooth-scroll";
+import { ScrollTop } from "@/components/site/scroll-top";
+import { FirebaseAnalytics } from "@/components/site/firebase-analytics";
 import { Grain } from "@/components/site/grain";
 import { CurtainIntro } from "@/components/site/curtain";
 import { DAY_NAMES_SHORT, formatTime12h } from "@/lib/content";
@@ -58,6 +60,8 @@ export default async function SiteLayout({
         {children}
       </main>
       <SiteFooter settings={settings} hours={hours} services={services} />
+      <ScrollTop />
+      <FirebaseAnalytics />
       <RegisterSw />
     </div>
   );

@@ -7,19 +7,66 @@ import { ImageIcon, Link2, Loader2, Trash2, Upload, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { firebaseConfigured } from "@/lib/firebase-config";
+import { fbAuth, fbStorage } from "@/lib/firebase";
+import { mirrorMediaUpload } from "@/lib/firebase-mirror";
 
 /**
  * MediaField — the shared admin control for every image/video field in the
  * CMS. Two ways to set a value, side by side:
  *
  *   1. Paste a link (YouTube URL, any hosted image/video URL).
- *   2. Upload a file — POSTed to /api/admin/upload, which stores it in
- *      Firebase Storage when configured (FIREBASE_* in .env) or on the
- *      server's local disk as a development fallback.
+ *   2. Upload a file — when a Firebase account is signed in, the file goes
+ *      straight from this browser to the clinic's Firebase Storage bucket;
+ *      the public download link is returned, logged in the Firestore `media`
+ *      registry, and saved with the record. Without a Firebase session the
+ *      upload falls back to the server route (local disk driver).
  *
  * Shows a live preview for images and a link chip for videos; value can be
  * cleared entirely (saves as null).
  */
+
+const IMAGE_MAX = 10 * 1024 * 1024;
+const VIDEO_MAX = 64 * 1024 * 1024;
+
+function validFile(file: File, kind: "image" | "video"): string | null {
+  if (kind === "image") {
+    if (!file.type.startsWith("image/")) return "That file is not an image.";
+    if (file.size > IMAGE_MAX) return "Images must be 10 MB or smaller.";
+  } else {
+    if (!file.type.startsWith("video/")) return "That file is not a video.";
+    if (file.size > VIDEO_MAX) return "Videos must be 64 MB or smaller.";
+  }
+  return null;
+}
+
+function storagePath(folder: string, fileName: string): string {
+  const safe = fileName
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(-80);
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${folder}/${Date.now()}-${rand}-${safe || "file"}`;
+}
+
+/** Upload straight to Firebase Storage from the browser (returns the public URL). */
+async function uploadToFirebase(
+  file: File,
+  kind: "image" | "video",
+  folder: string
+): Promise<{ url: string; path: string }> {
+  const { getDownloadURL, ref, uploadBytes } = await import(
+    "firebase/storage"
+  );
+  const path = storagePath(folder, file.name);
+  const task = await uploadBytes(ref(fbStorage(), path), file, {
+    contentType: file.type || "application/octet-stream",
+    cacheControl: "public, max-age=31536000, immutable",
+  });
+  const url = await getDownloadURL(task.ref);
+  return { url, path };
+}
 
 export function MediaField({
   id,
@@ -43,34 +90,72 @@ export function MediaField({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [driver, setDriver] = useState<"firebase" | "server" | null>(null);
 
   const isImage = kind === "image";
 
   async function handleFile(file: File) {
     setError(null);
+    const invalid = validFile(file, kind);
+    if (invalid) {
+      setError(invalid);
+      toast.error(invalid);
+      return;
+    }
     setUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("kind", kind);
-      body.append("folder", folder);
-      const res = await fetch("/api/admin/upload", { method: "POST", body });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        url?: string;
-        note?: string;
-        error?: string;
-      };
-      if (!res.ok || !data.ok || !data.url) {
-        throw new Error(data.error ?? "Upload failed — please try again.");
+      // Preferred: direct browser → Firebase Storage upload.
+      const authUser = firebaseConfigured ? fbAuth().currentUser : null;
+      if (authUser) {
+        const { url, path } = await uploadToFirebase(file, kind, folder);
+        await mirrorMediaUpload({
+          url,
+          path,
+          folder,
+          kind,
+          contentType: file.type || "application/octet-stream",
+          sizeBytes: file.size,
+          fileName: file.name,
+          uploadedBy: authUser.email,
+        });
+        setDriver("firebase");
+        onChange(url);
+        toast.success(`Uploaded to Firebase Storage`, {
+          description: `${file.name} — link saved with this record.`,
+        });
+      } else {
+        // Fallback: the server route (local disk driver when Firebase
+        // service-account env vars are unset).
+        const body = new FormData();
+        body.append("file", file);
+        body.append("kind", kind);
+        body.append("folder", folder);
+        const res = await fetch("/api/admin/upload", {
+          method: "POST",
+          body,
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          url?: string;
+          note?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.ok || !data.url) {
+          throw new Error(
+            data.error ?? "Upload failed — please try again."
+          );
+        }
+        setDriver("server");
+        onChange(data.url);
+        toast.success(`Uploaded ${file.name}`, {
+          description: data.note,
+        });
       }
-      onChange(data.url);
-      toast.success(`Uploaded ${file.name}`, {
-        description: data.note,
-      });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Upload failed — please try again.";
+        err instanceof Error
+          ? err.message
+          : "Upload failed — please try again.";
       setError(message);
       toast.error(message);
     } finally {
@@ -182,6 +267,16 @@ export function MediaField({
       ) : null}
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {driver === "firebase" ? (
+        <p className="text-xs font-medium text-clay-deep">
+          Stored in Firebase Storage — link registered in Firestore.
+        </p>
+      ) : driver === "server" ? (
+        <p className="text-xs text-muted-foreground">
+          Stored by the server driver — connect Firebase (sign in with
+          Firebase on this browser) for Storage uploads.
+        </p>
+      ) : null}
       {hint ? (
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <ImageIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />

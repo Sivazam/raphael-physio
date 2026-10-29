@@ -263,7 +263,7 @@ export function Hero({ phoneDisplay, phoneHref, hoursLine }: HeroProps) {
             >
               <Image
                 src="/images/photo-therapist-band.jpg"
-                alt="Illustrative photo: a physiotherapist guiding an older patient through a resistance-band exercise in a bright clinic."
+                alt="Illustrative photo: an Indian physiotherapist guiding an elderly Indian patient through a resistance-band exercise in a bright clinic."
                 fill
                 priority
                 sizes="(min-width: 1024px) 44vw, (min-width: 640px) 70vw, 92vw"

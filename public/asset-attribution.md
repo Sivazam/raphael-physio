@@ -26,29 +26,33 @@ own rooms, staff, or patients.
   (transparent PNG downscales). Same ownership as the logo; no
   third-party claim.
 
-## Photography — illustrative placeholders (not photographs of this clinic)
+## Photography — illustrative imagery (not photographs of this clinic)
 
-**Sourced images (6)** — retrieved through an image-search service
-(public web imagery); each was reviewed with a vision model for subject
-appropriateness at selection time. The service provides no per-image
-licence record, so these are **pre-launch placeholders**: before the site
-goes public they will be replaced with the clinic's own photographs or
-properly licensed stock.
+**AI-generated images (9)** — created for this project with an
+image-generation service so the imagery reflects the people and setting of
+Rajamahendravaram (Indian therapists and patients, local clinic
+interiors). They depict plausible but **not real** people, rooms, or
+scenes, and are never captioned as the clinic's rooms, staff, or
+patients. Each image was reviewed with a vision model for cultural fit
+and rendering artefacts before publication. They remain pre-launch
+placeholders: the clinic's own photographs will replace them when
+supplied.
 
-- `public/images/photo-treatment-room.jpg` — treatment room with plinth
+- `public/images/photo-therapist-band.jpg` — Indian physiotherapist
+  guiding an elderly patient through a resistance-band exercise (hero)
+- `public/images/photo-team-therapy.jpg` — two Indian physiotherapists
+  reviewing a recovery chart (team section)
+- `public/images/photo-treatment-room.jpg` — treatment room
 - `public/images/photo-rehab-gym.jpg` — rehabilitation gym
 - `public/images/photo-gait-training.jpg` — gait training between bars
 - `public/images/photo-band-gym.jpg` — resistance-band exercise
 - `public/images/photo-care-strength.jpg` — supported strength / care work
-- `public/images/photo-therapist-band.jpg` — therapist guiding a band exercise
-
-**AI-generated images (2)** — created for this project with an
-image-generation service. They depict plausible but **not real** interiors
-and people and are never captioned as the clinic's rooms or staff.
-
-- `public/images/photo-inpatient-room.jpg` — in-patient room (generated)
 - `public/images/photo-manual-therapy.jpg` — hands-on manual therapy
-  (generated)
+- `public/images/photo-inpatient-room.jpg` — in-patient room
+
+*(An earlier set of six web-sourced stock photos — none of them depicting
+Indian people or settings — was fully replaced by the generated set
+above. The old files are retrievable from the project's git history.)*
 
 ## Fonts & interface icons
 
@@ -57,5 +61,5 @@ and people and are never captioned as the clinic's rooms or staff.
 
 ---
 
-*Last reviewed: 27 October 2026. Corrections or licence queries:
+*Last reviewed: 29 October 2026. Corrections or licence queries:
 raphaelphysiotherapyclinic@gmail.com.*

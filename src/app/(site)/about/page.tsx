@@ -206,9 +206,9 @@ export default async function AboutPage() {
               <figure className="group relative overflow-hidden rounded-3xl">
                 <Image
                   src="/images/photo-treatment-room.jpg"
-                  alt="Illustrative photo: a calm physiotherapy treatment room with a treatment table and warm daylight."
-                  width={1120}
-                  height={1400}
+                  alt="Illustrative photo: a calm Indian physiotherapy treatment room with a treatment table and warm daylight."
+                  width={1024}
+                  height={1024}
                   sizes="(min-width: 1024px) 45vw, (min-width: 640px) 60vw, 90vw"
                   className="aspect-[4/5] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
                 />
@@ -281,9 +281,9 @@ export default async function AboutPage() {
               <figure className="group mt-8 overflow-hidden rounded-3xl border border-border/70">
                 <Image
                   src="/images/photo-rehab-gym.jpg"
-                  alt="Illustrative photo: a rehabilitation gym area with parallel bars and simple exercise equipment."
-                  width={896}
-                  height={672}
+                  alt="Illustrative photo: a rehabilitation gym inside the Indian clinic, with parallel bars and simple exercise equipment."
+                  width={864}
+                  height={648}
                   sizes="(min-width: 1024px) 40vw, (min-width: 640px) 70vw, 90vw"
                   className="aspect-[4/3] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
                 />
@@ -362,9 +362,9 @@ export default async function AboutPage() {
               <figure className="group mt-6 overflow-hidden rounded-3xl border border-border/70">
                 <Image
                   src="/images/photo-care-strength.jpg"
-                  alt="Illustrative photo: a therapist supporting a patient during a guided strengthening exercise."
-                  width={896}
-                  height={672}
+                  alt="Illustrative photo: an Indian physiotherapist supporting an elderly Indian woman in a saree during a guided strengthening exercise."
+                  width={864}
+                  height={864}
                   sizes="(min-width: 1024px) 40vw, (min-width: 640px) 70vw, 90vw"
                   className="aspect-[4/3] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
                 />
@@ -412,9 +412,9 @@ export default async function AboutPage() {
             <figure className="group overflow-hidden rounded-3xl border border-border/70">
               <Image
                 src="/images/photo-band-gym.jpg"
-                alt="Illustrative photo: a patient exercising with a resistance band under a therapist's guidance in a gym."
-                width={1344}
-                height={576}
+                alt="Illustrative photo: an Indian patient exercising with a resistance band under an Indian therapist's guidance in the rehabilitation gym."
+                width={1728}
+                height={864}
                 sizes="(min-width: 1024px) 92vw, 95vw"
                 className="aspect-[21/9] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.03]"
               />
