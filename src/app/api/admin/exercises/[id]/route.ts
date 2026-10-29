@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { adminJson, authorizeApiRequest } from "@/lib/auth";
-import { db } from "@/lib/db";
+import {
+  exerciseCategoryExists,
+  getExerciseRecord,
+  updateExerciseFields,
+} from "@/lib/store";
 import {
   CONTENT_STATUSES,
   jsonError,
@@ -118,13 +122,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     return jsonError("Nothing to update.", 400);
   }
 
-  // A category id must reference a real exercise category.
-  if (data.categoryId) {
-    const category = await db.exerciseCategory.findUnique({
-      where: { id: data.categoryId },
-      select: { id: true },
-    });
-    if (!category) {
+  try {
+    // A category id must reference a real exercise category (dual-path).
+    if (data.categoryId && !(await exerciseCategoryExists(data.categoryId))) {
       return NextResponse.json(
         {
           ok: false,
@@ -134,16 +134,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         { status: 400 }
       );
     }
-  }
 
-  try {
-    const existing = await db.exercise.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    const existing = await getExerciseRecord(id);
     if (!existing) return jsonError("Exercise not found.", 404);
 
-    const updated = await db.exercise.update({ where: { id }, data });
+    const updated = await updateExerciseFields(id, data);
     return adminJson(session, { ok: true, exercise: updated });
   } catch (err) {
     return serverError("exercises/update", err);

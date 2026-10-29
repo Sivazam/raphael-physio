@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { adminJson, authorizeApiRequest, requireAdminRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { saveClinicSettings } from "@/lib/store";
 import {
   EMAIL_RE,
   TIME_RE,
@@ -175,81 +175,42 @@ export async function PUT(req: NextRequest) {
   const s = parsed.data;
 
   try {
-    const result = await db.$transaction([
-      db.clinicSetting.upsert({
-        where: { id: "singleton" },
-        update: {
-          phonePrimary: s.phonePrimary,
-          phoneAlternate: emptyToNull(s.phoneAlternate),
-          email: emptyToNull(s.email),
-          addressLine1: s.addressLine1,
-          addressLine2: emptyToNull(s.addressLine2),
-          addressLine3: emptyToNull(s.addressLine3),
-          city: s.city,
-          state: emptyToNull(s.state),
-          postcode: emptyToNull(s.postcode),
-          country: emptyToNull(s.country),
-          mapsUrl: emptyToNull(s.mapsUrl),
-          googleReviewsUrl: emptyToNull(s.googleReviewsUrl),
-          bookingMode: s.bookingMode,
-          externalBookingUrl: emptyToNull(s.externalBookingUrl),
-          sundayBookingEnabled: s.sundayBookingEnabled,
-          minBookingDateOffset: s.minBookingDateOffset,
-          maxBookingDateOffset: s.maxBookingDateOffset,
-          slotDurationMinutes: s.slotDurationMinutes,
-          bookingNotes: emptyToNull(s.bookingNotes),
-          facebookUrl: emptyToNull(s.facebookUrl),
-          instagramUrl: emptyToNull(s.instagramUrl),
-          linkedinUrl: emptyToNull(s.linkedinUrl),
-          youtubeUrl: emptyToNull(s.youtubeUrl),
-        },
-        create: {
-          id: "singleton",
-          phonePrimary: s.phonePrimary,
-          phoneAlternate: emptyToNull(s.phoneAlternate),
-          email: emptyToNull(s.email),
-          addressLine1: s.addressLine1,
-          addressLine2: emptyToNull(s.addressLine2),
-          addressLine3: emptyToNull(s.addressLine3),
-          city: s.city,
-          state: emptyToNull(s.state),
-          postcode: emptyToNull(s.postcode),
-          country: emptyToNull(s.country),
-          mapsUrl: emptyToNull(s.mapsUrl),
-          googleReviewsUrl: emptyToNull(s.googleReviewsUrl),
-          bookingMode: s.bookingMode,
-          externalBookingUrl: emptyToNull(s.externalBookingUrl),
-          sundayBookingEnabled: s.sundayBookingEnabled,
-          minBookingDateOffset: s.minBookingDateOffset,
-          maxBookingDateOffset: s.maxBookingDateOffset,
-          slotDurationMinutes: s.slotDurationMinutes,
-          bookingNotes: emptyToNull(s.bookingNotes),
-          facebookUrl: emptyToNull(s.facebookUrl),
-          instagramUrl: emptyToNull(s.instagramUrl),
-          linkedinUrl: emptyToNull(s.linkedinUrl),
-          youtubeUrl: emptyToNull(s.youtubeUrl),
-        },
-      }),
-      ...s.hours.map((day) =>
-        db.operatingHour.upsert({
-          where: { dayOfWeek: day.dayOfWeek },
-          update: {
-            isOpen: day.isOpen,
-            sessions: JSON.stringify(day.sessions),
-          },
-          create: {
-            dayOfWeek: day.dayOfWeek,
-            isOpen: day.isOpen,
-            sessions: JSON.stringify(day.sessions),
-          },
-        })
-      ),
-    ]);
+    // Dual-path store write: the ClinicSetting singleton + 7 OperatingHour
+    // rows in SQLite, or config/clinic + hours/{day} docs in Firestore
+    // (database-less deployments). Same validated payload either way.
+    const result = await saveClinicSettings(
+      {
+        phonePrimary: s.phonePrimary,
+        phoneAlternate: emptyToNull(s.phoneAlternate),
+        email: emptyToNull(s.email),
+        addressLine1: s.addressLine1,
+        addressLine2: emptyToNull(s.addressLine2),
+        addressLine3: emptyToNull(s.addressLine3),
+        city: s.city,
+        state: emptyToNull(s.state),
+        postcode: emptyToNull(s.postcode),
+        country: emptyToNull(s.country),
+        mapsUrl: emptyToNull(s.mapsUrl),
+        googleReviewsUrl: emptyToNull(s.googleReviewsUrl),
+        bookingMode: s.bookingMode,
+        externalBookingUrl: emptyToNull(s.externalBookingUrl),
+        sundayBookingEnabled: s.sundayBookingEnabled,
+        minBookingDateOffset: s.minBookingDateOffset,
+        maxBookingDateOffset: s.maxBookingDateOffset,
+        slotDurationMinutes: s.slotDurationMinutes,
+        bookingNotes: emptyToNull(s.bookingNotes),
+        facebookUrl: emptyToNull(s.facebookUrl),
+        instagramUrl: emptyToNull(s.instagramUrl),
+        linkedinUrl: emptyToNull(s.linkedinUrl),
+        youtubeUrl: emptyToNull(s.youtubeUrl),
+      },
+      s.hours
+    );
 
     return adminJson(session, {
       ok: true,
-      settings: result[0],
-      hours: result.slice(1),
+      settings: result.settings,
+      hours: result.hours,
     });
   } catch (err) {
     return serverError("settings/update", err);

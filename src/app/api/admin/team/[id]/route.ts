@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { adminJson, authorizeApiRequest } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getTherapistRecord, updateTherapistFields } from "@/lib/store";
 import {
   CONTENT_STATUSES,
   jsonError,
@@ -113,31 +113,24 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     return jsonError("Nothing to update.", 400);
   }
 
-  const dbData = {
-    name: data.name,
-    title: data.title,
-    qualifications: data.qualifications,
-    experienceYears: data.experienceYears,
-    bio: data.bio,
-    photoUrl: data.photoUrl,
-    sortOrder: data.sortOrder,
-    status: data.status,
-    ...(data.languages !== undefined
-      ? { languages: JSON.stringify(data.languages) }
-      : {}),
-    ...(data.expertise !== undefined
-      ? { expertise: JSON.stringify(data.expertise) }
-      : {}),
-  };
-
   try {
-    const existing = await db.therapist.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    const existing = await getTherapistRecord(id);
     if (!existing) return jsonError("Therapist not found.", 404);
 
-    const updated = await db.therapist.update({ where: { id }, data: dbData });
+    // The store stringifies languages/expertise for SQLite itself; Firestore
+    // stores them as native arrays. Undefined keys are skipped either way.
+    const updated = await updateTherapistFields(id, {
+      name: data.name,
+      title: data.title,
+      qualifications: data.qualifications,
+      experienceYears: data.experienceYears,
+      bio: data.bio,
+      photoUrl: data.photoUrl,
+      sortOrder: data.sortOrder,
+      status: data.status,
+      languages: data.languages,
+      expertise: data.expertise,
+    });
     return adminJson(session, { ok: true, therapist: updated });
   } catch (err) {
     return serverError("team/update", err);

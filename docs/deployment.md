@@ -188,7 +188,67 @@ bun run dev        # http://localhost:3000, logs to dev.log
 The service worker also registers on `localhost`, so PWA behaviour can be
 developed locally without TLS.
 
-## 11. Pre-launch checklist
+## 11. Serverless deployment (Vercel & friends)
+
+The clinic's SQLite database is a **local file** (`db/custom.db`) plus a
+git-ignored `.env` — neither travels with a git-push deployment, and
+Vercel's serverless filesystem could not host SQLite writes anyway. The
+site handles this through a **dual-path data layer** (`src/lib/store.ts`):
+
+- **With a database** (local dev, a VPS per sections 1–10): everything runs
+  on SQLite via Prisma exactly as documented above.
+- **Without a database** (Vercel): every admin/dashboard/booking/contact
+  query transparently falls back to the clinic's **Firebase project**
+  (Firestore via plain HTTPS REST — the project runs in test mode with
+  open rules, which is what allows the serverless writes). Firebase web
+  config is baked into `src/lib/firebase-config.ts`, so **no environment
+  variables are required for the deployment to work**.
+
+What works on Vercel out of the box:
+
+- Public pages render from the baked content snapshot (Task 18 design:
+  fast, static, resilient)
+- **Admin sign-in** — Firebase email/password (or Google) exchanges the ID
+  token for the clinic session at `/api/admin/auth/firebase`; authorization
+  resolves through AdminUser rows → `ADMIN_FIREBASE_EMAILS` env → Firestore
+  `admins` docs → the baked clinic identity
+- The **full admin dashboard** (appointments, messages, services,
+  exercises, team, stories, settings) reads and writes Firestore
+- **Booking + contact submissions** create Firestore documents (fresh
+  conflict re-check per slot; double-booking guard preserved)
+
+Environment variables worth setting on Vercel (all optional but
+recommended):
+
+| Variable | Why |
+|---|---|
+| `ADMIN_SESSION_SECRET` | Sessions currently fall back to a known dev value when unset — **set a strong `openssl rand -hex 32` here** so admin cookies can't be forged by anyone holding the source. |
+| `NEXT_PUBLIC_SITE_URL` | Canonical URLs / sitemap / robots for the production domain (baked at build time). |
+| `ADMIN_FIREBASE_EMAILS` | Extra Google-account emails allowed to sign in (comma-separated). |
+| `FIRESTORE_SERVER_FALLBACK` | Set to `disabled` to turn the server-side Firestore path off entirely. |
+
+Operational notes:
+
+- `bun run db:seed-firestore` (i.e. `scripts/firestore-seed.ts`) mirrors
+  the local SQLite content (services, exercises, categories, team,
+  stories, hours, settings, admins) into Firestore. Run it after making
+  local content edits you want reflected on Vercel. It never touches the
+  live `appointments` / `messages` collections.
+- Content edits made **through the Vercel admin UI** write to Firestore and
+  appear in the admin immediately; the public pages keep serving the baked
+  snapshot until the next deploy (the Task 18 policy — content changes ship
+  with a release).
+- **Security caveat (test mode):** the Firestore rules are wide open by
+  choice today. Anyone who knows the project id can read/write those
+  collections. Before the clinic stores meaningful patient data there,
+  tighten the rules and/or move server writes to a service account
+  (`FIREBASE_SERVICE_ACCOUNT_KEY`). Appointment requests currently hold
+  name + phone only — the same data the contact form collects.
+- `appointments` / `messages` live ONLY in Firestore on Vercel (the local
+  SQLite never sees them) and only in SQLite locally — pick one environment
+  as your operational console and stick to it.
+
+## 12. Pre-launch checklist
 
 1. Every item in `docs/content-needed.md` resolved or consciously deferred
 2. `.env` uses a strong `ADMIN_SESSION_SECRET`, real domain in

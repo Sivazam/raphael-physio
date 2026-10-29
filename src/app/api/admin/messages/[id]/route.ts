@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { adminJson, authorizeApiRequest } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { updateMessageFields } from "@/lib/store";
 import {
   MESSAGE_STATUSES,
   jsonError,
@@ -12,7 +12,8 @@ import {
 
 /**
  * PATCH /api/admin/messages/[id] — mark a contact message read/unread or
- * archive/restore it.
+ * archive/restore it. Served through the dual-path store (SQLite → Firestore
+ * on serverless deployments).
  */
 
 const patchSchema = z.object({
@@ -42,16 +43,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const existing = await db.contactMessage.findUnique({
-      where: { id },
-      select: { id: true },
+    const updated = await updateMessageFields(id, {
+      status: parsed.data.status,
     });
-    if (!existing) return jsonError("Message not found.", 404);
-
-    const updated = await db.contactMessage.update({
-      where: { id },
-      data: { status: parsed.data.status },
-    });
+    if (!updated) return jsonError("Message not found.", 404);
     return adminJson(session, { ok: true, message: updated });
   } catch (err) {
     return serverError("messages/update", err);

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 
-import { db } from "@/lib/db";
+import { listStoryRows, listTherapistOptions } from "@/lib/store";
 import { StoriesTable } from "../../_components/stories-table";
-import type { StoryRow, OptionItem } from "../../_lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,40 +10,12 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminStoriesPage() {
-  const [stories, therapists] = await Promise.all([
-    db.patientStory
-      .findMany({
-        orderBy: { createdAt: "desc" },
-        include: { therapist: { select: { id: true, name: true } } },
-      })
-      .catch(() => []),
-    db.therapist
-      .findMany({
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      })
-      .catch(() => []),
+  // Dual-path reads: SQLite when the database exists, the Firestore mirror
+  // otherwise — same row shapes either way.
+  const [rows, therapistOptions] = await Promise.all([
+    listStoryRows(),
+    listTherapistOptions(),
   ]);
-
-  const rows: StoryRow[] = stories.map((s) => ({
-    id: s.id,
-    slug: s.slug,
-    title: s.title,
-    conditionContext: s.conditionContext,
-    journey: s.journey,
-    beforeImageUrl: s.beforeImageUrl,
-    afterImageUrl: s.afterImageUrl,
-    therapistId: s.therapistId,
-    therapistName: s.therapist?.name ?? null,
-    consentStatus: s.consentStatus,
-    consentReference: s.consentReference,
-    status: s.status,
-  }));
-
-  const therapistOptions: OptionItem[] = therapists.map((t) => ({
-    id: t.id,
-    label: t.name,
-  }));
 
   return (
     <div className="grid gap-6">

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
-import { db } from "@/lib/db";
+import {
+  listExerciseCategoryOptions,
+  listExerciseRows,
+} from "@/lib/store";
 import { ExercisesTable } from "../../_components/exercises-table";
-import type { ExerciseRow, OptionItem } from "../../_lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,42 +13,12 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminExercisesPage() {
-  const [exercises, categories] = await Promise.all([
-    db.exercise
-      .findMany({
-        orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
-        include: { category: { select: { name: true } } },
-      })
-      .catch(() => []),
-    db.exerciseCategory
-      .findMany({
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        select: { id: true, name: true },
-      })
-      .catch(() => []),
+  // Dual-path reads: SQLite when the database exists, the Firestore mirror
+  // otherwise — same row shapes either way.
+  const [rows, categoryOptions] = await Promise.all([
+    listExerciseRows(),
+    listExerciseCategoryOptions(),
   ]);
-
-  const rows: ExerciseRow[] = exercises.map((e) => ({
-    id: e.id,
-    slug: e.slug,
-    title: e.title,
-    summary: e.summary,
-    purpose: e.purpose,
-    instructions: e.instructions,
-    imageUrl: e.imageUrl,
-    videoUrl: e.videoUrl,
-    youtubeUrl: e.youtubeUrl,
-    categoryId: e.categoryId,
-    featured: e.featured,
-    status: e.status,
-    sortOrder: e.sortOrder,
-    categoryName: e.category?.name ?? null,
-  }));
-
-  const categoryOptions: OptionItem[] = categories.map((c) => ({
-    id: c.id,
-    label: c.name,
-  }));
 
   return (
     <div className="grid gap-6">

@@ -12,8 +12,8 @@ import {
   Users,
 } from "lucide-react";
 
-import { db } from "@/lib/db";
 import { getAdminSession } from "@/lib/auth";
+import { getDashboardSnapshot } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "../_components/status-badge";
 import { formatTime12h, formatYmd, todayYmdClinic } from "../_lib/format";
@@ -67,31 +67,16 @@ export default async function AdminDashboardPage() {
   const session = await getAdminSession();
   const today = todayYmdClinic();
 
-  const [
-    newAppointments,
-    unreadMessages,
+  // Dual-path snapshot: counts + today's requests from SQLite or Firestore.
+  const {
+    requestedAppointments: newAppointments,
+    newMessages: unreadMessages,
     draftServices,
     draftExercises,
     draftTherapists,
     draftStories,
-    todayRequests,
-  ] = await Promise.all([
-    db.appointmentRequest
-      .count({ where: { status: "requested" } })
-      .catch(() => 0),
-    db.contactMessage.count({ where: { status: "new" } }).catch(() => 0),
-    db.service.count({ where: { status: "draft" } }).catch(() => 0),
-    db.exercise.count({ where: { status: "draft" } }).catch(() => 0),
-    db.therapist.count({ where: { status: "draft" } }).catch(() => 0),
-    db.patientStory.count({ where: { status: "draft" } }).catch(() => 0),
-    db.appointmentRequest
-      .findMany({
-        where: { appointmentDate: today, status: { not: "cancelled" } },
-        orderBy: { appointmentSlot: "asc" },
-        take: 10,
-      })
-      .catch(() => []),
-  ]);
+    todaysAppointments: todayRequests,
+  } = await getDashboardSnapshot();
 
   const draftTotal =
     draftServices + draftExercises + draftTherapists + draftStories;

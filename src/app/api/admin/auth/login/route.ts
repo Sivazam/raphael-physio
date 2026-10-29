@@ -6,6 +6,7 @@ import {
   setSessionCookie,
 } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { dbReachable } from "@/lib/store";
 import {
   clientIp,
   jsonError,
@@ -72,6 +73,17 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, password } = parsed.data;
+
+  // The offline (scrypt) path is local-database-only by design: password
+  // hashes live in the AdminUser table, which serverless deployments do not
+  // have. On those, Firebase sign-in is the supported path — say so plainly
+  // instead of returning a generic failure.
+  if (!(await dbReachable())) {
+    return jsonError(
+      "Offline sign-in needs the clinic's local database. On this deployment, please use the Firebase sign-in above (email/password or Google).",
+      503
+    );
+  }
 
   try {
     const user = await db.adminUser.findUnique({ where: { email } });

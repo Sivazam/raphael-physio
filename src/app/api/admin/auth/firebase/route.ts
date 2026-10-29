@@ -9,6 +9,8 @@ import {
   readJsonBody,
   zodFieldErrors,
 } from "../../_lib/helpers";
+import { BAKED_ADMINS } from "@/lib/baked-content";
+import { findFirestoreAdmin } from "@/lib/store";
 import {
   FIREBASE_CONFIG,
   firebaseAllowlistEmails,
@@ -25,10 +27,16 @@ import {
  * Google itself confirms the token is authentic and returns the account.
  * Only that endpoint's response is trusted; nothing client-supplied is.
  *
- * Authorization: the confirmed email must match an AdminUser row (any role)
- * or the ADMIN_FIREBASE_EMAILS allowlist. Firebase sign-in alone never
- * grants access — this stays true even if the Firebase project's own rules
- * are wide open (test mode).
+ * Authorization: the confirmed email must resolve to a clinic admin
+ * identity through ANY of these tiers —
+ *   1. an AdminUser row (SQLite — local dev and hosts with the database),
+ *   2. the ADMIN_FIREBASE_EMAILS env allowlist,
+ *   3. an `admins` document in the clinic's Firestore (added staff),
+ *   4. BAKED_ADMINS (the deployment constant — the documented clinic
+ *      identity, so sign-in works even on a database-less serverless host
+ *      with an empty Firestore).
+ * Firebase sign-in alone never grants access — this stays true even if the
+ * Firebase project's own rules are wide open (test mode).
  */
 
 const WINDOW_MS = 10 * 60 * 1000;
@@ -92,32 +100,56 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ---- authorize against the clinic's admin allowlist ------------------
+  // ---- authorize against the clinic's admin tiers ----------------------
   const email = (account.email ?? "").toLowerCase();
   const allowlisted = firebaseAllowlistEmails().includes(email);
-  const admin = allowlisted
-    ? await db.adminUser
-        .findUnique({ where: { email } })
-        .catch(() => null)
-    : await db.adminUser
-        .findUnique({ where: { email } })
-        .catch(() => null);
 
-  if (!allowlisted && !admin) {
+  let identity: { id: string; name: string | null; role: string } | null =
+    null;
+
+  // Tier 1 — the admin CMS's own user table (when the database exists).
+  const row = await db.adminUser
+    .findUnique({ where: { email } })
+    .catch(() => null);
+  if (row) {
+    identity = { id: row.id, name: row.name, role: row.role };
+  }
+
+  // Tier 3 — Firestore `admins` docs (works on database-less deployments).
+  if (!identity) {
+    const fsAdmin = await findFirestoreAdmin(email);
+    if (fsAdmin) {
+      identity = { id: fsAdmin.id, name: fsAdmin.name, role: fsAdmin.role };
+    }
+  }
+
+  // Tier 4 — the baked clinic identity (always present in the build).
+  if (!identity) {
+    const baked = BAKED_ADMINS.find((a) => a.email === email);
+    if (baked) {
+      identity = {
+        id: `baked:${baked.email}`,
+        name: baked.name,
+        role: baked.role,
+      };
+    }
+  }
+
+  if (!identity && !allowlisted) {
     return jsonError(GENERIC_FAILURE, 403);
   }
 
   // ---- issue the standard admin session --------------------------------
-  // The session subject is the AdminUser id when one exists; for pure
-  // allowlist members a stable pseudo-id keeps the token shape valid.
+  // The session subject is the resolved identity's id when one exists; for
+  // pure allowlist members a stable pseudo-id keeps the token shape valid.
   const token = createSessionToken({
-    id: admin?.id ?? `fb:${Buffer.from(email).toString("base64url")}`,
+    id: identity?.id ?? `fb:${Buffer.from(email).toString("base64url")}`,
     email,
-    role: admin?.role ?? "admin",
+    role: identity?.role ?? "admin",
   });
   const res = NextResponse.json({
     ok: true,
-    user: { name: admin?.name ?? email.split("@")[0], email },
+    user: { name: identity?.name ?? email.split("@")[0], email },
   });
   setSessionCookie(res, token);
   return res;

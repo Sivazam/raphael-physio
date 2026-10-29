@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 
-import { db } from "@/lib/db";
+import { listTherapistRows } from "@/lib/store";
 import { TeamTable } from "../../_components/team-table";
-import type { TherapistRow } from "../../_lib/types";
-import { parseJsonArray } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 
@@ -12,24 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminTeamPage() {
-  const therapists = await db.therapist
-    .findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] })
-    .catch(() => []);
-
-  const rows: TherapistRow[] = therapists.map((t) => ({
-    id: t.id,
-    slug: t.slug,
-    name: t.name,
-    title: t.title,
-    qualifications: t.qualifications,
-    experienceYears: t.experienceYears,
-    bio: t.bio,
-    photoUrl: t.photoUrl,
-    languages: parseJsonArray<string>(t.languages),
-    expertise: parseJsonArray<string>(t.expertise),
-    status: t.status,
-    sortOrder: t.sortOrder,
-  }));
+  // Dual-path read: SQLite when the database exists, the Firestore mirror
+  // otherwise — languages/expertise arrive parsed either way.
+  const rows = await listTherapistRows();
 
   return (
     <div className="grid gap-6">

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { db } from "@/lib/db";
+import { listAppointmentRows } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { AppointmentsTable } from "../../_components/appointments-table";
-import type { AppointmentRow } from "../../_lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -36,28 +35,10 @@ export default async function AdminAppointmentsPage({
   const params = await searchParams;
   const filter = parseFilter(params.status);
 
-  const requests = await db.appointmentRequest
-    .findMany({
-      where: filter === "all" ? {} : { status: filter },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    })
-    .catch(() => []);
-
-  const rows: AppointmentRow[] = requests.map((r) => ({
-    id: r.id,
-    patientName: r.patientName,
-    phone: r.phone,
-    email: r.email,
-    serviceName: r.serviceName,
-    appointmentDate: r.appointmentDate,
-    appointmentSlot: r.appointmentSlot,
-    notes: r.notes,
-    consentGiven: r.consentGiven,
-    status: r.status,
-    adminNote: r.adminNote,
-    createdAt: r.createdAt.toISOString(),
-  }));
+  // Dual-path read: SQLite when the database exists, Firestore otherwise.
+  const rows = await listAppointmentRows(
+    filter === "all" ? undefined : { status: filter }
+  );
 
   return (
     <div className="grid gap-6">

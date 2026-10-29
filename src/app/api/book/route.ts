@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import {
+  createAppointmentRequest,
+  getPublishedServiceRef,
+} from "@/lib/store";
 import { getSettings } from "@/lib/settings";
 import {
   createRateLimiter,
@@ -218,13 +221,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Optional service: must be a currently-published service (snapshot name).
+  // Dual-path (SQLite → Firestore) through the store; a Firestore outage
+  // throws here so the route's catch answers honestly.
   let service: { id: string; name: string } | null = null;
   if (data.serviceId) {
     try {
-      service = await db.service.findFirst({
-        where: { id: data.serviceId, status: "published" },
-        select: { id: true, name: true },
-      });
+      service = await getPublishedServiceRef(data.serviceId);
     } catch {
       service = null;
     }
@@ -245,40 +247,27 @@ export async function POST(req: NextRequest) {
 
   const reference = generateReferenceId();
 
+  // Dual-path store write: transactional conflict re-check + create on
+  // SQLite, fresh-list conflict check + create on Firestore (Vercel).
   let created = false;
   try {
-    created = await db.$transaction(async (tx) => {
-      // Close the double-booking race before inserting.
-      const conflict = await tx.appointmentRequest.findFirst({
-        where: {
-          appointmentDate: data.date,
-          appointmentSlot: data.slot,
-          status: { not: "cancelled" },
-        },
-        select: { id: true },
-      });
-      if (conflict) return false;
-      await tx.appointmentRequest.create({
-        data: {
-          patientName: data.name,
-          phone,
-          email: null,
-          serviceId: service?.id ?? null,
-          serviceName: service?.name ?? null,
-          appointmentDate: data.date,
-          appointmentSlot: data.slot,
-          notes: data.notes ?? null,
-          consentGiven: true,
-          status: "requested",
-          // Staff-visible reference so a quoted "RPH-…" can be matched later.
-          adminNote: `Reference: ${reference}`,
-        },
-      });
-      return true;
-    });
+    ({ created } = await createAppointmentRequest({
+      patientName: data.name,
+      phone,
+      email: null,
+      serviceId: service?.id ?? null,
+      serviceName: service?.name ?? null,
+      appointmentDate: data.date,
+      appointmentSlot: data.slot,
+      notes: data.notes ?? null,
+      consentGiven: true,
+      status: "requested",
+      // Staff-visible reference so a quoted "RPH-…" can be matched later.
+      adminNote: `Reference: ${reference}`,
+    }));
   } catch {
     // Fixed message only — never log patient data or echoing errors.
-    console.error("[book] Failed to store appointment request (database error)");
+    console.error("[book] Failed to store appointment request (store error)");
     return NextResponse.json(
       {
         ok: false,

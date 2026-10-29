@@ -1,15 +1,21 @@
 import { cache } from "react";
-import { db } from "@/lib/db";
 import { SITE } from "@/lib/site";
-import { parseJsonArray, type Session } from "@/lib/content";
+import { type Session } from "@/lib/content";
 import { BAKED_HOURS } from "@/lib/baked-content";
+import {
+  getClinicSettingsRecord,
+  getOperatingHoursRows,
+} from "@/lib/store";
 
 /**
  * Server-side accessor for editable clinic settings. Values in the database
  * are seeded from the verified constants in @/lib/site — never a second,
  * conflicting hard-coded copy. Admin changes in /admin flow through here.
  *
- * `cache()` deduplicates reads within a single request.
+ * Resolution order: SQLite (Prisma) → Firestore `config/clinic` (mirrored
+ * by scripts/firestore-seed.ts and written by /admin/settings on
+ * database-less deployments) → the verified constants fallback. `cache()`
+ * deduplicates reads within a single request.
  */
 
 export interface ClinicInfo {
@@ -84,72 +90,65 @@ const FALLBACK: ClinicInfo = {
   },
 };
 
+/** Maps a stored settings record to the public ClinicInfo shape. */
+function mapSettingRow(
+  row: NonNullable<Awaited<ReturnType<typeof getClinicSettingsRecord>>>
+): ClinicInfo {
+  return {
+    phonePrimary: row.phonePrimary ?? FALLBACK.phonePrimary,
+    // Display formatting is a presentation concern — always derive it from
+    // the canonical constants (or format the raw number), never store raw
+    // unspaced strings in *Display fields.
+    phonePrimaryDisplay:
+      row.phonePrimary === SITE.phonePrimary
+        ? SITE.phonePrimaryDisplay
+        : (row.phonePrimary ?? FALLBACK.phonePrimary),
+    phoneAlternate: row.phoneAlternate,
+    phoneAlternateDisplay:
+      row.phoneAlternate === SITE.phoneAlternate
+        ? SITE.phoneAlternateDisplay
+        : row.phoneAlternate,
+    email: row.email,
+    address: {
+      line1: row.addressLine1,
+      line2: row.addressLine2,
+      line3: row.addressLine3,
+      city: row.city,
+      state: row.state,
+      postcode: row.postcode,
+      country: row.country,
+    },
+    mapsUrl: row.mapsUrl ?? SITE.mapsUrl,
+    googleReviewsUrl: row.googleReviewsUrl,
+    bookingMode: row.bookingMode === "external" ? "external" : "internal",
+    externalBookingUrl: row.externalBookingUrl,
+    sundayBookingEnabled: row.sundayBookingEnabled,
+    minBookingDateOffset: row.minBookingDateOffset,
+    maxBookingDateOffset: row.maxBookingDateOffset,
+    slotDurationMinutes: row.slotDurationMinutes,
+    bookingNotes: row.bookingNotes,
+    smsReminderHours: row.smsReminderHours,
+    social: {
+      facebookUrl: row.facebookUrl,
+      instagramUrl: row.instagramUrl,
+      linkedinUrl: row.linkedinUrl,
+      youtubeUrl: row.youtubeUrl,
+    },
+  };
+}
+
 export const getSettings = cache(async (): Promise<ClinicInfo> => {
-  try {
-    const row = await db.clinicSetting.findUnique({ where: { id: "singleton" } });
-    if (!row) return FALLBACK;
-    return {
-      phonePrimary: row.phonePrimary ?? FALLBACK.phonePrimary,
-      // Display formatting is a presentation concern — always derive it from
-      // the canonical constants (or format the raw number), never store raw
-      // unspaced strings in *Display fields.
-      phonePrimaryDisplay:
-        row.phonePrimary === SITE.phonePrimary
-          ? SITE.phonePrimaryDisplay
-          : (row.phonePrimary ?? FALLBACK.phonePrimary),
-      phoneAlternate: row.phoneAlternate,
-      phoneAlternateDisplay:
-        row.phoneAlternate === SITE.phoneAlternate
-          ? SITE.phoneAlternateDisplay
-          : row.phoneAlternate,
-      email: row.email,
-      address: {
-        line1: row.addressLine1,
-        line2: row.addressLine2,
-        line3: row.addressLine3,
-        city: row.city,
-        state: row.state,
-        postcode: row.postcode,
-        country: row.country,
-      },
-      mapsUrl: row.mapsUrl ?? SITE.mapsUrl,
-      googleReviewsUrl: row.googleReviewsUrl,
-      bookingMode: row.bookingMode === "external" ? "external" : "internal",
-      externalBookingUrl: row.externalBookingUrl,
-      sundayBookingEnabled: row.sundayBookingEnabled,
-      minBookingDateOffset: row.minBookingDateOffset,
-      maxBookingDateOffset: row.maxBookingDateOffset,
-      slotDurationMinutes: row.slotDurationMinutes,
-      bookingNotes: row.bookingNotes,
-      smsReminderHours: row.smsReminderHours,
-      social: {
-        facebookUrl: row.facebookUrl,
-        instagramUrl: row.instagramUrl,
-        linkedinUrl: row.linkedinUrl,
-        youtubeUrl: row.youtubeUrl,
-      },
-    };
-  } catch {
-    // Database unavailable (e.g. before first db:push) — fall back to
-    // verified constants so pages still render.
-    return FALLBACK;
-  }
+  // Reads through the dual-path store (SQLite → Firestore); both degrade
+  // to null when nothing is stored — the verified constants answer then.
+  const row = await getClinicSettingsRecord();
+  if (!row) return FALLBACK;
+  return mapSettingRow(row);
 });
 
 export const getOperatingHours = cache(async (): Promise<DayHours[]> => {
-  try {
-    const rows = await db.operatingHour.findMany({ orderBy: { dayOfWeek: "asc" } });
-    // Empty result = database reachable but unseeded (or wiped) — serve the
-    // baked draft schedule so footer/contact/booking keep rendering hours.
-    if (rows.length === 0) return BAKED_HOURS;
-    return rows.map((r) => ({
-      dayOfWeek: r.dayOfWeek,
-      isOpen: r.isOpen,
-      sessions: parseJsonArray<Session>(r.sessions),
-    }));
-  } catch {
-    // Database unavailable (e.g. serverless deploys without the SQLite
-    // file) — the baked schedule keeps every hours surface consistent.
-    return BAKED_HOURS;
-  }
+  // SQLite rows → Firestore docs → the baked draft schedule, so every
+  // hours surface (header strip, footer, contact, booking) keeps rendering.
+  const rows = await getOperatingHoursRows();
+  if (rows.length === 0) return BAKED_HOURS;
+  return rows;
 });

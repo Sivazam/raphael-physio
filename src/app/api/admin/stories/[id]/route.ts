@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { adminJson, authorizeApiRequest } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getStoryRecord, therapistExists, updateStoryFields } from "@/lib/store";
 import {
   CONSENT_STATUSES,
   CONTENT_STATUSES,
@@ -106,24 +106,18 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const existing = await db.patientStory.findUnique({ where: { id } });
+    const existing = await getStoryRecord(id);
     if (!existing) return jsonError("Story not found.", 404);
 
-    if (data.therapistId) {
-      const therapist = await db.therapist.findUnique({
-        where: { id: data.therapistId },
-        select: { id: true },
-      });
-      if (!therapist) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "Please choose a valid therapist.",
-            fieldErrors: { therapistId: "That therapist no longer exists." },
-          },
-          { status: 400 }
-        );
-      }
+    if (data.therapistId && !(await therapistExists(data.therapistId))) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Please choose a valid therapist.",
+          fieldErrors: { therapistId: "That therapist no longer exists." },
+        },
+        { status: 400 }
+      );
     }
 
     // Merge patch over existing state, then enforce the consent rule on the
@@ -160,7 +154,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
 
-    const updated = await db.patientStory.update({ where: { id }, data });
+    const updated = await updateStoryFields(id, data);
     return adminJson(session, { ok: true, story: updated });
   } catch (err) {
     return serverError("stories/update", err);

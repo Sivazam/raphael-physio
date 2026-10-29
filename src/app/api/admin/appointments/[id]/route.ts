@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { adminJson, authorizeApiRequest, requireAdminRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import {
+  deleteAppointmentRecord,
+  getAppointmentRecord,
+  updateAppointmentFields,
+} from "@/lib/store";
 import {
   APPOINTMENT_STATUSES,
   jsonError,
@@ -53,15 +57,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const existing = await db.appointmentRequest.findUnique({ where: { id } });
+    const existing = await getAppointmentRecord(id);
     if (!existing) return jsonError("Appointment request not found.", 404);
 
-    const updated = await db.appointmentRequest.update({
-      where: { id },
-      data: {
-        ...(data.status !== undefined ? { status: data.status } : {}),
-        ...(data.adminNote !== undefined ? { adminNote: data.adminNote } : {}),
-      },
+    const updated = await updateAppointmentFields(id, {
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.adminNote !== undefined ? { adminNote: data.adminNote } : {}),
     });
     return adminJson(session, { ok: true, appointment: updated });
   } catch (err) {
@@ -78,13 +79,10 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
   const { id } = await ctx.params;
   try {
-    const existing = await db.appointmentRequest.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    const existing = await getAppointmentRecord(id);
     if (!existing) return jsonError("Appointment request not found.", 404);
 
-    await db.appointmentRequest.delete({ where: { id } });
+    await deleteAppointmentRecord(id);
     return adminJson(session, { ok: true });
   } catch (err) {
     return serverError("appointments/delete", err);

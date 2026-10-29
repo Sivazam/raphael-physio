@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 
-import { db } from "@/lib/db";
+import { listServiceRows } from "@/lib/store";
 import { ServicesTable } from "../../_components/services-table";
-import type { ServiceRow } from "../../_lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,26 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminServicesPage() {
-  const services = await db.service
-    .findMany({
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      include: { category: { select: { name: true } } },
-    })
-    .catch(() => []);
-
-  const rows: ServiceRow[] = services.map((s) => ({
-    id: s.id,
-    slug: s.slug,
-    name: s.name,
-    tagline: s.tagline,
-    summary: s.summary,
-    description: s.description,
-    imageUrl: s.imageUrl,
-    featured: s.featured,
-    status: s.status,
-    sortOrder: s.sortOrder,
-    categoryName: s.category?.name ?? null,
-  }));
+  // Dual-path read: SQLite rows when the database exists, the Firestore
+  // mirror otherwise — either way the table sees the same row shape.
+  const rows = await listServiceRows();
 
   return (
     <div className="grid gap-6">

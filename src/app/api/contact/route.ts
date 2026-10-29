@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { createContactMessage } from "@/lib/store";
 
 /**
  * POST /api/contact — contact/enquiry form handler.
  *
- * Validation happens server-side (zod). Stored via the ContactMessage model.
- * Deliberately never leaks internals: database or unexpected errors return a
+ * Validation happens server-side (zod). Stored through the dual-path store
+ * (SQLite → Firestore on serverless) via the ContactMessage model.
+ * Deliberately never leaks internals: store or unexpected errors return a
  * generic message with a phone fallback.
  */
 
@@ -154,13 +155,11 @@ export async function POST(req: NextRequest) {
   const storedMessage = `Topic: ${TOPIC_LABELS[data.topic]}\n\n${data.message}`;
 
   try {
-    await db.contactMessage.create({
-      data: {
-        name: data.name,
-        phone: data.phone,
-        email: data.email === "" ? null : data.email ?? null,
-        message: storedMessage,
-      },
+    await createContactMessage({
+      name: data.name,
+      phone: data.phone,
+      email: data.email === "" ? null : data.email ?? null,
+      message: storedMessage,
     });
   } catch (err) {
     console.error("[contact] Failed to store message:", err);

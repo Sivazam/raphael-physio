@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { adminJson, authorizeApiRequest } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getServiceRecord, updateServiceFields } from "@/lib/store";
 import {
   CONTENT_STATUSES,
   jsonError,
@@ -97,13 +97,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const existing = await db.service.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    const existing = await getServiceRecord(id);
     if (!existing) return jsonError("Service not found.", 404);
 
-    const updated = await db.service.update({ where: { id }, data });
+    const updated = await updateServiceFields(id, data);
     return adminJson(session, { ok: true, service: updated });
   } catch (err) {
     return serverError("services/update", err);

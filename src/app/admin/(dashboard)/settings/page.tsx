@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 
-import { db } from "@/lib/db";
+import {
+  getClinicSettingsRecord,
+  getOperatingHoursRows,
+} from "@/lib/store";
 import { SettingsForm } from "../../_components/settings-form";
 import type { SettingsForm as SettingsFormType } from "../../_lib/types";
-import { parseJsonArray } from "@/lib/content";
-import type { Session } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminSettingsPage() {
+  // Dual-path reads: SQLite when the database exists, Firestore otherwise.
   const [row, hourRows] = await Promise.all([
-    db.clinicSetting.findUnique({ where: { id: "singleton" } }).catch(() => null),
-    db.operatingHour
-      .findMany({ orderBy: { dayOfWeek: "asc" } })
-      .catch(() => []),
+    getClinicSettingsRecord(),
+    getOperatingHoursRows(),
   ]);
 
   // Full 0–6 day grid; any missing row renders as closed with no sessions
@@ -30,7 +30,7 @@ export default async function AdminSettingsPage() {
     return {
       dayOfWeek: day,
       isOpen: h?.isOpen ?? false,
-      sessions: h ? parseJsonArray<Session>(h.sessions) : [],
+      sessions: h?.sessions ?? [],
     };
   });
 

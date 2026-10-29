@@ -709,6 +709,34 @@ export const BAKED_HOURS: BakedDayHours[] = Array.from(
   })
 );
 
+/* ------------------------------------------------------------------- admins */
+
+/**
+ * The clinic's baked admin identities — the last-resort authorization list
+ * for Firebase sign-ins on database-less deployments (Vercel).
+ *
+ * The seed creates the same identity in SQLite from ADMIN_EMAIL/ADMIN_NAME
+ * (defaults below), and the Firebase Auth account for the primary email was
+ * created from the same source — so "the email the clinic signs in with"
+ * resolves identically on every tier: AdminUser row → ADMIN_FIREBASE_EMAILS
+ * env → Firestore `admins` docs (scripts/firestore-seed.ts mirrors the rows)
+ * → this constant. Firebase sign-in ALONE is never enough: the verified
+ * email must match one of those tiers before a session is issued.
+ */
+export interface BakedAdmin {
+  email: string;
+  name: string;
+  role: string; // "admin" | "staff"
+}
+
+export const BAKED_ADMINS: BakedAdmin[] = [
+  {
+    email: "admin@raphaelphysio.local",
+    name: "Clinic Administrator",
+    role: "admin",
+  },
+];
+
 /* -------------------------------------------------------------- seed data */
 
 /**

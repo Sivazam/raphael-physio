@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { db } from "@/lib/db";
+import { listMessageRows } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { MessagesTable } from "../../_components/messages-table";
-import type { MessageRow } from "../../_lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,23 +33,10 @@ export default async function AdminMessagesPage({
   const params = await searchParams;
   const filter = parseFilter(params.status);
 
-  const messages = await db.contactMessage
-    .findMany({
-      where: filter === "all" ? {} : { status: filter },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    })
-    .catch(() => []);
-
-  const rows: MessageRow[] = messages.map((m) => ({
-    id: m.id,
-    name: m.name,
-    phone: m.phone,
-    email: m.email,
-    message: m.message,
-    status: m.status,
-    createdAt: m.createdAt.toISOString(),
-  }));
+  // Dual-path read: SQLite when the database exists, Firestore otherwise.
+  const rows = await listMessageRows(
+    filter === "all" ? undefined : { status: filter }
+  );
 
   return (
     <div className="grid gap-6">

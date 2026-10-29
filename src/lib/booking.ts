@@ -15,10 +15,10 @@
  * its output through the page props and the JSON APIs.
  */
 
-import { db } from "@/lib/db";
 import { SITE } from "@/lib/site";
 import { formatTime12h, type Session } from "@/lib/content";
 import { getOperatingHours, getSettings } from "@/lib/settings";
+import { takenSlotsForDate } from "@/lib/store";
 
 export const CLINIC_TZ = SITE.timezone;
 
@@ -480,11 +480,10 @@ export async function getAvailabilityForDateWith(
   const generated = generateSlotsForSessions(day?.sessions ?? [], settings.slotDurationMinutes);
 
   // Slots already requested for this date (non-cancelled) are occupied.
-  const takenRows = await db.appointmentRequest.findMany({
-    where: { appointmentDate: dateISO, status: { not: SLOT_FREEING_STATUS } },
-    select: { appointmentSlot: true },
-  });
-  const taken = new Set(takenRows.map((r) => r.appointmentSlot));
+  // Dual-path read (SQLite → Firestore REST): taken slots for this date.
+  // UNCACHED and throwing on store failure by design — the route's catch
+  // turns an outage into an honest error instead of phantom free slots.
+  const taken = await takenSlotsForDate(dateISO, SLOT_FREEING_STATUS);
 
   // Same-day requests must be in the future (clinic-local clock).
   const nowMinutes =
