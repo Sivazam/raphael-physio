@@ -1,0 +1,17 @@
+# Task 12-a — full-stack-developer (media fields wiring in the ADMIN CMS)
+
+Note: canonical full record is the Task ID: 12-a entry in /home/z/my-project/worklog.md (this file mirrors it).
+
+Scope (13 files, all inside admin CMS / admin PATCH APIs — public site untouched):
+- src/app/admin/_lib/types.ts — ExerciseRow += imageUrl/videoUrl/youtubeUrl; TherapistRow += photoUrl; ServiceRow += imageUrl; StoryRow += beforeImageUrl/afterImageUrl (all `string | null`).
+- 4 dashboard server pages (exercises/team/services/stories) — row mappings now carry the new fields. Note: these pages use `include` (not `select`) on findMany, so all scalar columns were already fetched — only the row mapping needed the new keys.
+- 4 table components — FormState + toFormState + save() payload (`form.X.trim() || null`) + edit-Dialog UI: exercises got MediaField(image) + plain YouTube Input (with Youtube icon, hint, fieldErrors) + MediaField(video) after instructions, Dialog bumped to sm:max-w-2xl; team got MediaField(photo) after bio; services got MediaField(image) after description; stories got two MediaFields (before/after photos) after journey.
+- 4 PATCH routes — zod patchSchema += validated fields via an `optionalMediaUrl(label)` helper (+ `optionalYoutubeUrl()` in exercises with YouTube-host restriction). They flow straight into the existing `db.…update({ data })`; team route needed `photoUrl: data.photoUrl` added to its explicit `dbData` mapping.
+
+CRITICAL deviation (intentional, verified): the spec's literal helper ended with `.nullable().optional().transform(v => … ? null : v)`. In zod v4 that chain runs the transform even when the key is ABSENT, emitting `imageUrl: null` — which Prisma applies as a real update, so every partial PATCH (e.g. the StatusSelect dropdown sends only `{status}`) would silently WIPE all stored media. I moved the transform BEFORE `.nullable().optional()`: `.transform(v => (v === "" ? null : v)).nullable().optional()` — identical validation/messages for present values, but absent keys are omitted from the parsed object entirely. Verified empirically (bun + zod v4): `{status}` → media keys absent; `""`/`null` → null; valid URL → trimmed string; invalid URL / non-YouTube link → field error; `{}` → "Nothing to update" preserved.
+
+Also fixed during implementation: my first write of the regex literals landed with doubled backslashes (JSON-escaping slip) causing ESLint parse errors; corrected to `/^https?:\/\/.+\..+/` and the exact spec YouTube host regex, then byte-verified with cat -A and runtime-tested (7 YouTube host cases + media URL cases).
+
+Verification: `bun run lint` → 0 errors (1 pre-existing warning in orchestrator's media-field.tsx, untouched); `bunx tsc --noEmit` → 0 errors in src/app/** (only pre-existing errors in orchestrator's untracked src/lib/uploads.ts — firebase-admin type resolution — and skills/stock-analysis-skill example, both outside my ownership). Live Prisma queries confirm all new columns exist and query (Service.imageUrl already seeded). Dev server was down at smoke-test time (port 3000 not listening, instructed not to start anything); dev.log tail shows only stale `mediaUrl`-column errors from an earlier orchestrator schema iteration plus successful GET / 200s.
+
+Flagged for orchestrator (I'm read-only there): src/lib/uploads.ts has 3 TS errors (`Property 'apps'/'credential'/'storage' does not exist on typeof import("firebase-admin")`) — likely needs a types fix or different import; and the media-field.tsx eslint-disable at line 159 is unused (warning).

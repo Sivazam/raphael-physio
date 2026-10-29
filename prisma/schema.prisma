@@ -1,0 +1,267 @@
+// Raphael Physiotherapy & Rehabilitation Centre — data model
+// SQLite via Prisma. JSON-valued columns are stored as strings (SQLite has no
+// list primitives) and parsed through the helpers in src/lib/content.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Singleton row (id = "singleton") holding editable clinic configuration.
+model ClinicSetting {
+  id String @id @default("singleton")
+
+  // Contact (seeded from verified public data — see src/lib/site.ts)
+  phonePrimary      String
+  phoneAlternate    String?
+  email             String?
+  addressLine1      String
+  addressLine2      String?
+  addressLine3      String?
+  city              String
+  state             String?
+  postcode          String?
+  country           String?
+  mapsUrl           String?
+  googleReviewsUrl  String? // link to the Google listing (not the API)
+
+  // Booking configuration
+  bookingMode            String  @default("internal") // "internal" | "external"
+  externalBookingUrl     String?
+  sundayBookingEnabled   Boolean @default(false)
+  minBookingDateOffset   Int     @default(1) // earliest bookable day, days from today
+  maxBookingDateOffset   Int     @default(30) // furthest bookable day, days from today
+  slotDurationMinutes    Int     @default(30)
+  bookingNotes           String? // optional note shown on the booking page
+
+  // SMS notification configuration
+  smsProvider          String @default("msg91") // adapter key, see src/lib/sms
+  smsReminderHours     Int    @default(24) // reminder lead time in hours
+
+  // Social profiles — null/empty means "not verified, do not display"
+  facebookUrl  String?
+  instagramUrl String?
+  linkedinUrl  String?
+  youtubeUrl   String?
+
+  updatedAt DateTime @updatedAt
+}
+
+/// Opening hours per weekday (0 = Sunday … 6 = Saturday).
+/// `sessions` is a JSON array like [{"start":"09:00","end":"13:00"}, …].
+model OperatingHour {
+  dayOfWeek Int     @id
+  isOpen    Boolean @default(true)
+  sessions  String  @default("[]")
+}
+
+/// Clinical wings / service categories.
+model ServiceCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  status      String   @default("draft") // draft | published | archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  services    Service[]
+}
+
+model Service {
+  id            String           @id @default(cuid())
+  categoryId    String?
+  category      ServiceCategory? @relation(fields: [categoryId], references: [id])
+  name          String
+  slug          String           @unique
+  tagline       String?
+  summary       String
+  description   String
+  conditions    String           @default("[]") // JSON string[]
+  approach      String? // treatment approach copy
+  faqs          String           @default("[]") // JSON [{question, answer}]
+  imageUrl      String?
+  featured      Boolean          @default(false)
+  status        String           @default("draft") // draft | published | archived
+  seoTitle      String?
+  seoDescription String?
+  sortOrder     Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  exercises     Exercise[]
+}
+
+model Therapist {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  title            String?
+  qualifications   String?
+  experienceYears  Int?
+  bio              String?
+  languages        String   @default("[]") // JSON string[]
+  expertise        String   @default("[]") // JSON string[]
+  photoUrl         String?
+  status           String   @default("draft") // draft | published | archived
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  patientStories   PatientStory[]
+}
+
+/// Patient recovery stories. Never public unless status = published AND
+/// consentStatus = "approved" (documented consent on file).
+model PatientStory {
+  id               String     @id @default(cuid())
+  title            String
+  slug             String     @unique
+  conditionContext String?
+  journey          String?
+  beforeImageUrl   String?
+  afterImageUrl    String?
+  milestones       String     @default("[]") // JSON [{label, detail}]
+  therapistId      String?
+  therapist        Therapist? @relation(fields: [therapistId], references: [id])
+  consentStatus    String     @default("pending") // pending | approved | declined
+  consentReference String? // where the documented consent is filed
+  status           String     @default("draft") // draft | published | archived
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+/// Clinic impact statistics — displayed ONLY when verified = true and published.
+model ImpactStat {
+  id        String   @id @default(cuid())
+  label     String
+  value     String
+  note      String? // how the value was verified
+  verified  Boolean  @default(false)
+  status    String   @default("draft")
+  sortOrder Int      @default(0)
+}
+
+model ExerciseCategory {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  bodyArea    String?
+  description String?
+  sortOrder   Int        @default(0)
+  exercises   Exercise[]
+}
+
+/// Educational exercise pages. Content is general physiotherapy education,
+/// clearly labelled as such — never presented as an individual prescription.
+model Exercise {
+  id           String            @id @default(cuid())
+  categoryId   String?
+  category     ExerciseCategory? @relation(fields: [categoryId], references: [id])
+  title        String
+  slug         String            @unique
+  purpose      String?
+  summary      String
+  instructions String // newline-separated steps
+  frequency    String? // only when specifically approved — otherwise null
+  equipment    String?
+  // Media (managed from /admin; uploads go to Firebase Storage when
+  // configured — see src/lib/uploads.ts — else local /uploads fallback):
+  imageUrl     String? // illustrative image (pasted URL OR uploaded)
+  videoUrl     String? // direct video link (uploaded file)
+  youtubeUrl   String? // YouTube link (watch / youtu.be / shorts / embed)
+  precautions  String?
+  attribution  String?
+  featured     Boolean           @default(false)
+  status       String            @default("draft") // draft | published | archived
+  sortOrder    Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  services     Service[]
+}
+
+/// Cached Google reviews synced server-side from an authorized integration.
+model GoogleReview {
+  id             String    @id // provider review id
+  authorName     String?
+  authorPhotoUrl String?
+  rating         Int
+  text           String?
+  relativeTime   String?
+  postedAt       DateTime?
+  source         String    @default("google_business_profile") // google_business_profile | google_places
+  syncedAt       DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+/// Sync bookkeeping for the review integration (singleton).
+model ReviewSyncState {
+  id              String   @id @default("singleton")
+  provider        String? // gbp | places | null when unconfigured
+  lastSyncAt      DateTime?
+  lastSyncStatus  String? // success | error
+  lastSyncError   String?
+  reviewCount     Int      @default(0)
+  updatedAt       DateTime @updatedAt
+}
+
+/// Appointment REQUESTS (internal booking mode). Never presented to the
+/// patient as a confirmed appointment until staff set status = confirmed.
+model AppointmentRequest {
+  id              String   @id @default(cuid())
+  patientName     String
+  phone           String
+  email           String?
+  serviceId       String?
+  serviceName     String? // snapshot of the service name at request time
+  appointmentDate String // YYYY-MM-DD in clinic-local time (Asia/Kolkata)
+  appointmentSlot String // HH:mm 24h, clinic-local
+  notes           String?
+  consentGiven    Boolean  @default(false)
+  status          String   @default("requested") // requested | confirmed | rescheduled | cancelled | completed
+  adminNote       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  smsJobs         SmsJob[]
+}
+
+/// Outbound SMS notification jobs. Status honestly reflects delivery:
+/// "skipped_unconfigured" when no provider credentials exist — never "sent".
+model SmsJob {
+  id                String            @id @default(cuid())
+  appointmentId     String
+  appointment       AppointmentRequest @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  type              String // request_received | appointment_confirmed | reminder | rescheduled | cancelled
+  recipientPhone    String
+  status            String            @default("queued") // queued | sent | failed | skipped_unconfigured
+  attempts          Int               @default(0)
+  providerMessageId String?
+  error             String?
+  scheduledFor      DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime          @default(now())
+}
+
+/// Administrative users for /admin. Password hashing: scrypt (src/lib/auth.ts).
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         String   @default("admin") // admin | staff
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// Contact-page enquiry form submissions.
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  message   String
+  status    String   @default("new") // new | read | archived
+  createdAt DateTime @default(now())
+}
